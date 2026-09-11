@@ -87,7 +87,7 @@ export default function HomePage({ onToast, onNavigate }: Props): React.JSX.Elem
           <div className="label">Remaining</div>
           <div className={remainingClass}>{Math.round(dash.remainingKcal)} Kcal</div>
           <div className="muted small">
-            −{Math.round(dash.exerciseKcal)} exercise burned
+            {Math.round(dash.exerciseKcal)} Kcal exercise burned
           </div>
         </div>
         <div className="card">
