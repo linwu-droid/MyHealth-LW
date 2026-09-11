@@ -8,6 +8,7 @@ import type {
   ShoppingListItem
 } from '../../../shared/types'
 import { todayIso } from '../lib/format'
+import PlateVisual from '../lib/PlateVisual'
 
 type Props = { onToast: (msg: string) => void }
 
@@ -107,7 +108,7 @@ function formatDailyMealPlanText(plan: PortionPlan): string[] {
     } else {
       for (const it of items) {
         lines.push(
-          `  • ${it.name}: ${it.servings} × ${it.servingLabel} ≈ ${Math.round(it.macros.kcal)} kcal, ${it.macros.protein}g P · C ${it.macros.carbs}g · F ${it.macros.fat}g`
+          `  • ${it.name}: ${it.servings} × ${it.servingLabel} ≈ ${Math.round(it.macros.kcal)} kcal, ${it.macros.protein}g Protein · Carbohydrate ${it.macros.carbs}g · Fat ${it.macros.fat}g`
         )
       }
     }
@@ -176,7 +177,7 @@ function DailyMealCard(props: {
       </div>
       {total && goal && (
         <div className="muted small">
-          P {total.protein}/{goal.protein} · C {total.carbs}/{goal.carbs} · F{' '}
+          Protein {total.protein}/{goal.protein} · Carbohydrate {total.carbs}/{goal.carbs} · Fat{' '}
           {total.fat}/{goal.fat}
         </div>
       )}
@@ -191,8 +192,8 @@ function DailyMealCard(props: {
                 {it.servings} × {it.servingLabel}
               </span>
               <span className="muted small meal-item-macros">
-                ≈ {Math.round(it.macros.kcal)} kcal · P {it.macros.protein}g · C{' '}
-                {it.macros.carbs}g · F {it.macros.fat}g
+                ≈ {Math.round(it.macros.kcal)} kcal · Protein {it.macros.protein}g · Carbohydrate{' '}
+                {it.macros.carbs}g · Fat {it.macros.fat}g
               </span>
             </li>
           ))}
@@ -565,6 +566,10 @@ export default function ShoppingPage({ onToast }: Props): React.JSX.Element {
           Open Food Facts lookup). Simple split biased toward higher-protein foods.
         </p>
 
+        <div className="portion-section">
+          <PlateVisual plan={plan} onToast={onToast} />
+        </div>
+
         {plan && (
           <>
             <div className="cards tight" style={{ marginTop: 8 }}>
@@ -574,7 +579,7 @@ export default function ShoppingPage({ onToast }: Props): React.JSX.Element {
                   {Math.round(plan.totalsPerDay.kcal)} kcal
                 </div>
                 <div className="muted small">
-                  P {plan.totalsPerDay.protein} · C {plan.totalsPerDay.carbs} · F{' '}
+                  Protein {plan.totalsPerDay.protein} · Carbohydrate {plan.totalsPerDay.carbs} · Fat{' '}
                   {plan.totalsPerDay.fat}
                 </div>
               </div>
@@ -582,7 +587,7 @@ export default function ShoppingPage({ onToast }: Props): React.JSX.Element {
                 <div className="label">Daily goals</div>
                 <div className="value small-value">{plan.goalsPerDay.kcal} kcal</div>
                 <div className="muted small">
-                  P {plan.goalsPerDay.protein} · C {plan.goalsPerDay.carbs} · F{' '}
+                  Protein {plan.goalsPerDay.protein} · Carbohydrate {plan.goalsPerDay.carbs} · Fat{' '}
                   {plan.goalsPerDay.fat}
                 </div>
               </div>

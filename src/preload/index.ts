@@ -52,6 +52,8 @@ const api = {
     ipcRenderer.invoke('nutrition:importDrinksPack'),
   importHomemadeFoodsPack: (): Promise<CommonPackImportResult> =>
     ipcRenderer.invoke('nutrition:importHomemadePack'),
+  importSupermarketFoodsPack: (): Promise<CommonPackImportResult> =>
+    ipcRenderer.invoke('nutrition:importSupermarketPack'),
 
   listShopping: (): Promise<ShoppingListItem[]> => ipcRenderer.invoke('shopping:list'),
   addShopping: (input: {
@@ -106,7 +108,18 @@ const api = {
     ipcRenderer.invoke('data:export'),
   importData: (): Promise<{ cancelled: boolean; error?: string }> =>
     ipcRenderer.invoke('data:import'),
-  resetData: (): Promise<unknown> => ipcRenderer.invoke('data:reset')
+  resetData: (): Promise<unknown> => ipcRenderer.invoke('data:reset'),
+
+  exportAnalysisPdf: (
+    days: number
+  ): Promise<{ cancelled?: boolean; path?: string; error?: string }> =>
+    ipcRenderer.invoke('analysis:exportPdf', days),
+
+  savePngDataUrl: (
+    dataUrl: string,
+    defaultName?: string
+  ): Promise<{ cancelled?: boolean; path?: string; error?: string }> =>
+    ipcRenderer.invoke('data:savePng', dataUrl, defaultName)
 }
 
 contextBridge.exposeInMainWorld('api', api)

@@ -685,3 +685,73 @@ textarea.input {
 .progress-fill { height: 100%; background: #7a9a6d; border-radius: 999px; transition: width .2s; }
 .sparkline { width: 100%; height: 72px; display: block; }
 .card .sub { font-size: 0.8rem; color: var(--muted, #8a7f6e); margin-top: 2px; }
+
+/* Nutrition detail expandable panel */
+.nutrition-detail {
+  background: #f8f4ec;
+  border: 1px solid #d8d2c4;
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin: 4px 0 8px;
+}
+.nutrition-detail-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.nutrition-detail-macros {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.nutrition-detail-macros > div {
+  background: #fffdf8;
+  border: 1px solid #e4dece;
+  border-radius: 8px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.nutrition-detail-mineral-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 6px 12px;
+}
+.nutrition-detail-mineral {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  padding: 4px 0;
+  border-bottom: 1px dashed #e4dece;
+}
+.nutrition-detail-perserving {
+  margin-top: 10px;
+}
+tr.detail-row > td {
+  background: transparent;
+  padding-top: 0;
+  border-bottom: none;
+}
+
+/* Healthy plate visual */
+.plate-visual {
+  margin-top: 4px;
+}
+.plate-visual-body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  align-items: center;
+}
+.plate-visual-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 220px;
+  max-width: 340px;
+}

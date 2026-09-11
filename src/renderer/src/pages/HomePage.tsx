@@ -123,7 +123,7 @@ export default function HomePage({ onToast, onNavigate }: Props): React.JSX.Elem
           color="#2f6f4e"
         />
         <MacroBar
-          label="Carbs"
+          label="Carbohydrate"
           value={dash.eaten.carbs}
           goal={dash.carbsGoalG}
           color="#c47a2c"

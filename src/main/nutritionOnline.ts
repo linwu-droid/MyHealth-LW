@@ -1,4 +1,4 @@
-import type { Food, OnlineFoodCandidate } from '../shared/types'
+﻿import type { Food, OnlineFoodCandidate } from '../shared/types'
 import {
   normalizeMinerals,
   roundMineral,
@@ -22,7 +22,7 @@ type OffNutriments = {
   carbohydrates_serving?: number
   fat_100g?: number
   fat_serving?: number
-  // Minerals â€” OFF units vary; helpers normalize to mg (Se/I Âµg)
+  // Minerals Ã¢â‚¬â€ OFF units vary; helpers normalize to mg (Se/I Ã‚Âµg)
   sodium_100g?: number
   sodium_serving?: number
   salt_100g?: number
@@ -81,11 +81,11 @@ function foodKey(name: string, brand?: string): string {
 /** OFF often stores sodium/salt in grams; convert to mg when value looks like g. */
 function sodiumMgFromOff(sodium: number | null, salt: number | null): number | undefined {
   if (sodium !== null && Number.isFinite(sodium)) {
-    // Typical sodium_100g is grams (0.01â€“2). Values > 20 are already mg-ish.
+    // Typical sodium_100g is grams (0.01Ã¢â‚¬â€œ2). Values > 20 are already mg-ish.
     return roundMineral(sodium <= 20 ? sodium * 1000 : sodium)
   }
   if (salt !== null && Number.isFinite(salt)) {
-    // salt (g) â‰ˆ 40% sodium â†’ mg
+    // salt (g) Ã¢â€°Ë† 40% sodium Ã¢â€ â€™ mg
     return roundMineral(salt * 400)
   }
   return undefined
@@ -112,7 +112,7 @@ function pickOffMineral(
 }
 
 /**
- * Map Open Food Facts nutriments â†’ MineralMap (mg; selenium/iodine Âµg).
+ * Map Open Food Facts nutriments Ã¢â€ â€™ MineralMap (mg; selenium/iodine Ã‚Âµg).
  * Uses serving values when macros came from serving; otherwise per-100g.
  */
 function mineralsFromOff(n: OffNutriments, preferServing: boolean): MineralMap | undefined {
@@ -138,7 +138,7 @@ function mineralsFromOff(n: OffNutriments, preferServing: boolean): MineralMap |
   for (const key of simple) {
     const v = pickOffMineral(n, key, preferServing)
     if (v === null) continue
-    // OFF mineral_100g is usually mg (Se/I often Âµg already)
+    // OFF mineral_100g is usually mg (Se/I often Ã‚Âµg already)
     out[key] = roundMineral(v)
   }
   return normalizeMinerals(out)
@@ -302,7 +302,7 @@ const COMMON_QUERIES = [
 ]
 
 /**
- * Fetches ~200â€“500 everyday foods from Open Food Facts via many small searches.
+ * Fetches ~200Ã¢â‚¬â€œ500 everyday foods from Open Food Facts via many small searches.
  * Dedupes by name+brand and skips products without usable kcal.
  */
 export async function fetchCommonFoodsPack(
@@ -746,4 +746,262 @@ export async function fetchHomemadeFoodsPack(
 
 export function getHomemadeSeedInputs(): Omit<Food, 'id'>[] {
   return HOMEMADE_SEED.map(toFoodInput)
+}
+
+/**
+ * Curated supermarket / shelf-stable foods with realistic per-serving nutrition.
+ * Used as a reliable seed and fallback when Open Food Facts is flaky.
+ */
+const SUPERMARKET_SEED: OnlineFoodCandidate[] = [
+  // Canned / frozen veg
+  { sourceId: 'seed-sm-corn-kernels-canned', source: 'openfoodfacts', name: 'Corn kernels (canned)', servingLabel: '1/2 cup drained (80 g)', kcal: 70, protein: 2.2, carbs: 15, fat: 0.8,
+    minerals: { sodium: 200, potassium: 160, calcium: 4, magnesium: 18, phosphorus: 50, iron: 0.4, zinc: 0.3 } },
+  { sourceId: 'seed-sm-sweet-corn', source: 'openfoodfacts', name: 'Sweet corn (canned)', servingLabel: '1/2 cup (85 g)', kcal: 75, protein: 2.4, carbs: 16, fat: 0.9,
+    minerals: { sodium: 210, potassium: 170, magnesium: 20, phosphorus: 55, iron: 0.4 } },
+  { sourceId: 'seed-sm-green-peas-canned', source: 'openfoodfacts', name: 'Green peas (canned)', servingLabel: '1/2 cup drained (85 g)', kcal: 60, protein: 3.8, carbs: 10, fat: 0.4,
+    minerals: { sodium: 250, potassium: 150, calcium: 20, magnesium: 17, phosphorus: 60, iron: 1.2, zinc: 0.6 } },
+  { sourceId: 'seed-sm-diced-carrots-canned', source: 'openfoodfacts', name: 'Diced carrots (canned)', servingLabel: '1/2 cup drained (75 g)', kcal: 30, protein: 0.6, carbs: 7, fat: 0.2,
+    minerals: { sodium: 220, potassium: 140, calcium: 25, magnesium: 8, phosphorus: 20, iron: 0.4 } },
+  { sourceId: 'seed-sm-mixed-veg-canned', source: 'openfoodfacts', name: 'Mixed vegetables (canned)', servingLabel: '1/2 cup drained (90 g)', kcal: 40, protein: 2, carbs: 8, fat: 0.3,
+    minerals: { sodium: 240, potassium: 180, calcium: 25, magnesium: 15, phosphorus: 40, iron: 0.8 } },
+  { sourceId: 'seed-sm-baked-beans', source: 'openfoodfacts', name: 'Baked beans (canned)', servingLabel: '1/2 cup (130 g)', kcal: 120, protein: 6, carbs: 22, fat: 0.8,
+    minerals: { sodium: 450, potassium: 350, calcium: 50, magnesium: 40, phosphorus: 100, iron: 2, zinc: 1 } },
+  { sourceId: 'seed-sm-chickpeas-canned', source: 'openfoodfacts', name: 'Chickpeas (canned)', servingLabel: '1/2 cup drained (120 g)', kcal: 140, protein: 7.5, carbs: 22, fat: 2.5,
+    minerals: { sodium: 280, potassium: 240, calcium: 40, magnesium: 35, phosphorus: 120, iron: 1.8, zinc: 1.2, manganese: 0.8 } },
+  { sourceId: 'seed-sm-kidney-beans-canned', source: 'openfoodfacts', name: 'Kidney beans (canned)', servingLabel: '1/2 cup drained (120 g)', kcal: 110, protein: 7.5, carbs: 19, fat: 0.5,
+    minerals: { sodium: 300, potassium: 350, calcium: 40, magnesium: 40, phosphorus: 120, iron: 2, zinc: 1 } },
+  { sourceId: 'seed-sm-lentils-canned', source: 'openfoodfacts', name: 'Lentils (canned)', servingLabel: '1/2 cup drained (120 g)', kcal: 115, protein: 9, carbs: 20, fat: 0.4,
+    minerals: { sodium: 250, potassium: 350, calcium: 25, magnesium: 35, phosphorus: 150, iron: 3, zinc: 1.2 } },
+  { sourceId: 'seed-sm-tomatoes-diced-canned', source: 'openfoodfacts', name: 'Tomatoes diced (canned)', servingLabel: '1/2 cup (120 g)', kcal: 25, protein: 1.2, carbs: 5, fat: 0.2,
+    minerals: { sodium: 200, potassium: 280, calcium: 30, magnesium: 15, phosphorus: 25, iron: 0.8 } },
+  { sourceId: 'seed-sm-tomato-passata', source: 'openfoodfacts', name: 'Tomato passata', servingLabel: '1/2 cup (125 ml)', kcal: 35, protein: 1.5, carbs: 7, fat: 0.2,
+    minerals: { sodium: 50, potassium: 350, calcium: 20, magnesium: 15, phosphorus: 30, iron: 0.8 } },
+  { sourceId: 'seed-sm-mushrooms-canned', source: 'openfoodfacts', name: 'Mushrooms (canned)', servingLabel: '1/2 cup drained (80 g)', kcal: 20, protein: 1.5, carbs: 3, fat: 0.3,
+    minerals: { sodium: 280, potassium: 100, calcium: 5, magnesium: 8, phosphorus: 50, iron: 0.6, selenium: 8 } },
+
+  // Long-life dairy / cream
+  { sourceId: 'seed-sm-uht-milk-whole', source: 'openfoodfacts', name: 'UHT milk (whole)', servingLabel: '250 ml', kcal: 150, protein: 8, carbs: 12, fat: 8,
+    minerals: { sodium: 105, potassium: 320, calcium: 280, magnesium: 24, phosphorus: 220, zinc: 0.9, selenium: 9, iodine: 50 } },
+  { sourceId: 'seed-sm-uht-milk-lite', source: 'openfoodfacts', name: 'UHT milk (lite)', servingLabel: '250 ml', kcal: 110, protein: 8.5, carbs: 12, fat: 3.5,
+    minerals: { sodium: 105, potassium: 350, calcium: 300, magnesium: 26, phosphorus: 240, zinc: 1, iodine: 52 } },
+  { sourceId: 'seed-sm-evaporated-milk', source: 'openfoodfacts', name: 'Evaporated milk', servingLabel: '60 ml (2 tbsp)', kcal: 80, protein: 4, carbs: 6, fat: 4.5,
+    minerals: { sodium: 60, potassium: 180, calcium: 150, magnesium: 14, phosphorus: 120, iodine: 25 } },
+  { sourceId: 'seed-sm-coconut-cream-can', source: 'openfoodfacts', name: 'Coconut cream (canned)', servingLabel: '60 ml (2 tbsp)', kcal: 120, protein: 1.2, carbs: 2.5, fat: 12,
+    minerals: { sodium: 10, potassium: 100, magnesium: 15, iron: 0.8, manganese: 0.4 } },
+  { sourceId: 'seed-sm-coconut-milk-can', source: 'openfoodfacts', name: 'Coconut milk (canned)', servingLabel: '60 ml', kcal: 90, protein: 1, carbs: 2, fat: 9,
+    minerals: { sodium: 10, potassium: 80, magnesium: 12, iron: 0.6, manganese: 0.3 } },
+
+  // Dry pantry
+  { sourceId: 'seed-sm-pasta-dry', source: 'openfoodfacts', name: 'Pasta dry (uncooked)', servingLabel: '75 g dry', kcal: 270, protein: 9, carbs: 54, fat: 1.2,
+    minerals: { sodium: 5, potassium: 150, calcium: 15, magnesium: 40, phosphorus: 120, iron: 1.5, selenium: 30 } },
+  { sourceId: 'seed-sm-rice-dry-white', source: 'openfoodfacts', name: 'White rice dry', servingLabel: '60 g dry', kcal: 220, protein: 4, carbs: 48, fat: 0.4,
+    minerals: { sodium: 2, potassium: 50, magnesium: 15, phosphorus: 60, iron: 0.5, selenium: 8 } },
+  { sourceId: 'seed-sm-rice-dry-brown', source: 'openfoodfacts', name: 'Brown rice dry', servingLabel: '60 g dry', kcal: 220, protein: 5, carbs: 45, fat: 1.6,
+    minerals: { sodium: 3, potassium: 130, magnesium: 60, phosphorus: 140, iron: 0.8, zinc: 1, manganese: 1.5, selenium: 12 } },
+  { sourceId: 'seed-sm-oats-rolled', source: 'openfoodfacts', name: 'Rolled oats', servingLabel: '40 g (1/2 cup)', kcal: 152, protein: 5.3, carbs: 27, fat: 2.7,
+    minerals: { sodium: 2, potassium: 146, calcium: 21, magnesium: 56, phosphorus: 166, iron: 1.7, zinc: 1.5, manganese: 1.5, selenium: 12 } },
+  { sourceId: 'seed-sm-flour-plain', source: 'openfoodfacts', name: 'Plain flour', servingLabel: '30 g (2 tbsp)', kcal: 110, protein: 3, carbs: 23, fat: 0.3,
+    minerals: { sodium: 1, potassium: 30, calcium: 5, magnesium: 8, phosphorus: 30, iron: 0.6, selenium: 8 } },
+  { sourceId: 'seed-sm-sugar-white', source: 'openfoodfacts', name: 'White sugar', servingLabel: '1 tsp (4 g)', kcal: 16, protein: 0, carbs: 4, fat: 0,
+    minerals: { sodium: 0, potassium: 0 } },
+  { sourceId: 'seed-sm-honey', source: 'openfoodfacts', name: 'Honey', servingLabel: '1 tbsp (21 g)', kcal: 64, protein: 0.1, carbs: 17, fat: 0,
+    minerals: { sodium: 1, potassium: 11, calcium: 1, magnesium: 0.4, iron: 0.1 } },
+  { sourceId: 'seed-sm-peanut-butter-smooth', source: 'openfoodfacts', name: 'Peanut butter (smooth)', servingLabel: '1 tbsp (16 g)', kcal: 94, protein: 4, carbs: 3.1, fat: 8,
+    minerals: { sodium: 73, potassium: 104, magnesium: 25, phosphorus: 56, iron: 0.3, zinc: 0.5, manganese: 0.3 } },
+  { sourceId: 'seed-sm-jam-strawberry', source: 'openfoodfacts', name: 'Strawberry jam', servingLabel: '1 tbsp (20 g)', kcal: 50, protein: 0.1, carbs: 13, fat: 0,
+    minerals: { sodium: 5, potassium: 20 } },
+  { sourceId: 'seed-sm-vegemite', source: 'openfoodfacts', name: 'Vegemite / yeast spread', servingLabel: '5 g (thin scrape)', kcal: 15, protein: 3, carbs: 0.7, fat: 0.1,
+    minerals: { sodium: 165, potassium: 100, magnesium: 5, phosphorus: 20, iron: 0.2, zinc: 0.3 } },
+
+  // Canned protein / soup / noodles
+  { sourceId: 'seed-sm-tuna-oil', source: 'openfoodfacts', name: 'Tuna canned in oil', servingLabel: '1 can drained (95 g)', kcal: 180, protein: 25, carbs: 0, fat: 8,
+    minerals: { sodium: 300, potassium: 220, magnesium: 30, phosphorus: 200, iron: 1.2, selenium: 70, iodine: 25 } },
+  { sourceId: 'seed-sm-tuna-water', source: 'openfoodfacts', name: 'Tuna canned in water', servingLabel: '1 can drained (95 g)', kcal: 100, protein: 22, carbs: 0, fat: 1,
+    minerals: { sodium: 280, potassium: 200, magnesium: 25, phosphorus: 180, iron: 1, selenium: 65, iodine: 25 } },
+  { sourceId: 'seed-sm-salmon-canned', source: 'openfoodfacts', name: 'Salmon canned', servingLabel: '1/2 can (85 g)', kcal: 140, protein: 18, carbs: 0, fat: 7,
+    minerals: { sodium: 350, potassium: 280, calcium: 180, magnesium: 25, phosphorus: 250, iron: 0.7, selenium: 35, iodine: 20 } },
+  { sourceId: 'seed-sm-soup-tomato-canned', source: 'openfoodfacts', name: 'Tomato soup (canned)', servingLabel: '1 cup (250 ml)', kcal: 90, protein: 2, carbs: 18, fat: 1.5,
+    minerals: { sodium: 650, potassium: 350, calcium: 30, magnesium: 15, iron: 0.8 } },
+  { sourceId: 'seed-sm-soup-chicken-canned', source: 'openfoodfacts', name: 'Chicken noodle soup (canned)', servingLabel: '1 cup (250 ml)', kcal: 80, protein: 4, carbs: 10, fat: 2.5,
+    minerals: { sodium: 700, potassium: 150, calcium: 20, magnesium: 10, phosphorus: 50, iron: 0.6 } },
+  { sourceId: 'seed-sm-instant-noodles', source: 'openfoodfacts', name: 'Instant noodles (prepared)', servingLabel: '1 pack prepared (350 g)', kcal: 380, protein: 8, carbs: 52, fat: 15,
+    minerals: { sodium: 1400, potassium: 150, calcium: 30, magnesium: 20, phosphorus: 80, iron: 1.5 } },
+  { sourceId: 'seed-sm-crackers-plain', source: 'openfoodfacts', name: 'Crackers plain', servingLabel: '4 crackers (20 g)', kcal: 85, protein: 1.5, carbs: 14, fat: 2.5,
+    minerals: { sodium: 150, potassium: 30, calcium: 10, magnesium: 8, phosphorus: 30, iron: 0.6, selenium: 4 } },
+  { sourceId: 'seed-sm-biscuits-plain', source: 'openfoodfacts', name: 'Biscuits plain (digestive)', servingLabel: '2 biscuits (30 g)', kcal: 140, protein: 2, carbs: 20, fat: 6,
+    minerals: { sodium: 120, potassium: 50, calcium: 20, magnesium: 15, iron: 0.8 } },
+  { sourceId: 'seed-sm-cornflakes', source: 'openfoodfacts', name: 'Cornflakes cereal', servingLabel: '30 g (1 cup)', kcal: 110, protein: 2, carbs: 25, fat: 0.2,
+    minerals: { sodium: 200, potassium: 30, calcium: 5, magnesium: 8, phosphorus: 20, iron: 3.5, zinc: 0.5 } },
+  { sourceId: 'seed-sm-muesli', source: 'openfoodfacts', name: 'Muesli (untoasted)', servingLabel: '40 g (1/3 cup)', kcal: 150, protein: 4, carbs: 26, fat: 4,
+    minerals: { sodium: 20, potassium: 180, calcium: 30, magnesium: 40, phosphorus: 120, iron: 1.5, zinc: 1, manganese: 1 } },
+  { sourceId: 'seed-sm-bread-longlife', source: 'openfoodfacts', name: 'Long-life bread (sliced)', servingLabel: '1 slice (30 g)', kcal: 75, protein: 2.5, carbs: 14, fat: 1,
+    minerals: { sodium: 140, potassium: 40, calcium: 20, magnesium: 10, phosphorus: 40, iron: 0.7, selenium: 6 } },
+  { sourceId: 'seed-sm-wraps-tortilla', source: 'openfoodfacts', name: 'Flour tortilla wrap', servingLabel: '1 wrap (50 g)', kcal: 150, protein: 4, carbs: 25, fat: 4,
+    minerals: { sodium: 280, potassium: 50, calcium: 40, magnesium: 15, phosphorus: 60, iron: 1.2 } },
+
+  // Oils / condiments
+  { sourceId: 'seed-sm-olive-oil', source: 'openfoodfacts', name: 'Olive oil', servingLabel: '1 tbsp (14 g)', kcal: 119, protein: 0, carbs: 0, fat: 13.5,
+    minerals: { sodium: 0, iron: 0.1 } },
+  { sourceId: 'seed-sm-canola-oil', source: 'openfoodfacts', name: 'Canola oil', servingLabel: '1 tbsp (14 g)', kcal: 124, protein: 0, carbs: 0, fat: 14,
+    minerals: { sodium: 0 } },
+  { sourceId: 'seed-sm-soy-sauce', source: 'openfoodfacts', name: 'Soy sauce', servingLabel: '1 tbsp (18 ml)', kcal: 10, protein: 1.5, carbs: 1, fat: 0,
+    minerals: { sodium: 900, potassium: 40, magnesium: 10, phosphorus: 20, iron: 0.3 } },
+  { sourceId: 'seed-sm-ketchup', source: 'openfoodfacts', name: 'Tomato ketchup', servingLabel: '1 tbsp (17 g)', kcal: 20, protein: 0.2, carbs: 5, fat: 0,
+    minerals: { sodium: 160, potassium: 50 } },
+  { sourceId: 'seed-sm-mayo', source: 'openfoodfacts', name: 'Mayonnaise', servingLabel: '1 tbsp (15 g)', kcal: 100, protein: 0.1, carbs: 0.3, fat: 11,
+    minerals: { sodium: 90, potassium: 5 } },
+
+  // Fresh supermarket staples
+  { sourceId: 'seed-sm-lettuce', source: 'openfoodfacts', name: 'Lettuce (iceberg)', servingLabel: '2 cups shredded (70 g)', kcal: 10, protein: 0.6, carbs: 2, fat: 0.1,
+    minerals: { sodium: 7, potassium: 100, calcium: 15, magnesium: 5, phosphorus: 15, iron: 0.3 } },
+  { sourceId: 'seed-sm-cucumber', source: 'openfoodfacts', name: 'Cucumber', servingLabel: '1/2 medium (150 g)', kcal: 20, protein: 0.8, carbs: 4.5, fat: 0.2,
+    minerals: { sodium: 3, potassium: 220, calcium: 20, magnesium: 15, phosphorus: 30, iron: 0.3 } },
+  { sourceId: 'seed-sm-tomato-fresh', source: 'openfoodfacts', name: 'Tomato fresh', servingLabel: '1 medium (120 g)', kcal: 22, protein: 1.1, carbs: 4.8, fat: 0.2,
+    minerals: { sodium: 6, potassium: 290, calcium: 12, magnesium: 13, phosphorus: 30, iron: 0.3 } },
+  { sourceId: 'seed-sm-capsicum', source: 'openfoodfacts', name: 'Capsicum (bell pepper)', servingLabel: '1 medium (120 g)', kcal: 30, protein: 1.2, carbs: 7, fat: 0.3,
+    minerals: { sodium: 4, potassium: 250, calcium: 10, magnesium: 14, phosphorus: 25, iron: 0.4 } },
+  { sourceId: 'seed-sm-onion', source: 'openfoodfacts', name: 'Onion', servingLabel: '1 medium (110 g)', kcal: 44, protein: 1.2, carbs: 10, fat: 0.1,
+    minerals: { sodium: 4, potassium: 160, calcium: 25, magnesium: 11, phosphorus: 30, iron: 0.2 } },
+  { sourceId: 'seed-sm-garlic', source: 'openfoodfacts', name: 'Garlic', servingLabel: '2 cloves (6 g)', kcal: 9, protein: 0.4, carbs: 2, fat: 0,
+    minerals: { sodium: 1, potassium: 24, calcium: 10, magnesium: 1.5, phosphorus: 9, manganese: 0.1 } },
+  { sourceId: 'seed-sm-potato-raw', source: 'openfoodfacts', name: 'Potato raw', servingLabel: '1 medium (150 g)', kcal: 110, protein: 3, carbs: 25, fat: 0.1,
+    minerals: { sodium: 10, potassium: 620, calcium: 15, magnesium: 30, phosphorus: 70, iron: 0.8 } },
+  { sourceId: 'seed-sm-carrot-raw', source: 'openfoodfacts', name: 'Carrot raw', servingLabel: '1 medium (60 g)', kcal: 25, protein: 0.6, carbs: 6, fat: 0.1,
+    minerals: { sodium: 40, potassium: 195, calcium: 20, magnesium: 7, phosphorus: 20, iron: 0.2 } },
+  { sourceId: 'seed-sm-celery', source: 'openfoodfacts', name: 'Celery', servingLabel: '2 stalks (80 g)', kcal: 12, protein: 0.6, carbs: 2.4, fat: 0.1,
+    minerals: { sodium: 65, potassium: 210, calcium: 32, magnesium: 9, phosphorus: 20, iron: 0.2 } },
+  { sourceId: 'seed-sm-spinach', source: 'openfoodfacts', name: 'Spinach raw', servingLabel: '2 cups (60 g)', kcal: 14, protein: 1.7, carbs: 2.2, fat: 0.2,
+    minerals: { sodium: 50, potassium: 335, calcium: 60, magnesium: 47, phosphorus: 30, iron: 1.6, manganese: 0.5 } },
+  { sourceId: 'seed-sm-mushroom-fresh', source: 'openfoodfacts', name: 'Mushroom fresh', servingLabel: '1 cup sliced (70 g)', kcal: 15, protein: 2.2, carbs: 2.3, fat: 0.2,
+    minerals: { sodium: 4, potassium: 220, calcium: 2, magnesium: 6, phosphorus: 60, iron: 0.4, selenium: 9 } },
+  { sourceId: 'seed-sm-cheese-slices', source: 'openfoodfacts', name: 'Cheese slices (processed)', servingLabel: '1 slice (20 g)', kcal: 70, protein: 4, carbs: 1, fat: 5.5,
+    minerals: { sodium: 280, potassium: 30, calcium: 140, phosphorus: 120, selenium: 4, iodine: 8 } },
+  { sourceId: 'seed-sm-ham-deli', source: 'openfoodfacts', name: 'Ham deli sliced', servingLabel: '2 slices (40 g)', kcal: 50, protein: 8, carbs: 1, fat: 1.5,
+    minerals: { sodium: 450, potassium: 120, calcium: 5, magnesium: 10, phosphorus: 100, iron: 0.4, zinc: 0.8, selenium: 10 } },
+  { sourceId: 'seed-sm-yoghurt-tub', source: 'openfoodfacts', name: 'Yoghurt tub (plain)', servingLabel: '170 g tub', kcal: 100, protein: 10, carbs: 8, fat: 3.5,
+    minerals: { sodium: 70, potassium: 240, calcium: 200, magnesium: 18, phosphorus: 180, selenium: 8, iodine: 35 } },
+  { sourceId: 'seed-sm-cheddar-block', source: 'openfoodfacts', name: 'Cheddar cheese block', servingLabel: '30 g', kcal: 120, protein: 7.5, carbs: 0.4, fat: 10,
+    minerals: { sodium: 180, potassium: 20, calcium: 210, magnesium: 8, phosphorus: 150, zinc: 1, selenium: 8, iodine: 12 } },
+  { sourceId: 'seed-sm-eggs-carton', source: 'openfoodfacts', name: 'Eggs (carton)', servingLabel: '1 large (50 g)', kcal: 72, protein: 6.3, carbs: 0.4, fat: 4.8,
+    minerals: { sodium: 71, potassium: 69, calcium: 28, magnesium: 6, phosphorus: 99, iron: 0.9, selenium: 15, iodine: 24 } },
+  { sourceId: 'seed-sm-banana', source: 'openfoodfacts', name: 'Banana', servingLabel: '1 medium (118 g)', kcal: 105, protein: 1.3, carbs: 27, fat: 0.4,
+    minerals: { sodium: 1, potassium: 422, magnesium: 32, phosphorus: 26, iron: 0.3, manganese: 0.3 } },
+  { sourceId: 'seed-sm-apple', source: 'openfoodfacts', name: 'Apple', servingLabel: '1 medium (182 g)', kcal: 95, protein: 0.5, carbs: 25, fat: 0.3,
+    minerals: { sodium: 2, potassium: 195, calcium: 11, magnesium: 9, phosphorus: 20, iron: 0.2 } },
+  { sourceId: 'seed-sm-avocado', source: 'openfoodfacts', name: 'Avocado', servingLabel: '1/2 fruit (68 g)', kcal: 114, protein: 1.3, carbs: 6, fat: 10.5,
+    minerals: { sodium: 5, potassium: 345, magnesium: 20, phosphorus: 36, iron: 0.4 } },
+  { sourceId: 'seed-sm-broccoli', source: 'openfoodfacts', name: 'Broccoli raw', servingLabel: '1 cup florets (90 g)', kcal: 30, protein: 2.5, carbs: 6, fat: 0.3,
+    minerals: { sodium: 30, potassium: 280, calcium: 40, magnesium: 20, phosphorus: 60, iron: 0.7 } },
+
+  // Frozen
+  { sourceId: 'seed-sm-frozen-peas', source: 'openfoodfacts', name: 'Frozen peas', servingLabel: '1/2 cup (80 g)', kcal: 60, protein: 4, carbs: 10, fat: 0.3,
+    minerals: { sodium: 70, potassium: 150, calcium: 20, magnesium: 20, phosphorus: 70, iron: 1.2, zinc: 0.7 } },
+  { sourceId: 'seed-sm-frozen-corn', source: 'openfoodfacts', name: 'Frozen corn kernels', servingLabel: '1/2 cup (80 g)', kcal: 70, protein: 2.5, carbs: 15, fat: 0.8,
+    minerals: { sodium: 5, potassium: 180, magnesium: 20, phosphorus: 55, iron: 0.4 } },
+  { sourceId: 'seed-sm-frozen-mixed-veg', source: 'openfoodfacts', name: 'Frozen mixed vegetables', servingLabel: '1 cup (120 g)', kcal: 55, protein: 2.5, carbs: 11, fat: 0.3,
+    minerals: { sodium: 40, potassium: 220, calcium: 30, magnesium: 20, phosphorus: 50, iron: 0.9 } },
+  { sourceId: 'seed-sm-frozen-berries', source: 'openfoodfacts', name: 'Frozen berries mixed', servingLabel: '1 cup (140 g)', kcal: 70, protein: 1, carbs: 17, fat: 0.4,
+    minerals: { sodium: 2, potassium: 180, calcium: 25, magnesium: 15, manganese: 0.8 } },
+  { sourceId: 'seed-sm-frozen-pizza', source: 'openfoodfacts', name: 'Frozen pizza portion', servingLabel: '1/4 pizza (100 g)', kcal: 250, protein: 10, carbs: 28, fat: 11,
+    minerals: { sodium: 550, potassium: 180, calcium: 150, magnesium: 25, phosphorus: 150, iron: 1.5 } },
+  { sourceId: 'seed-sm-ice-cream', source: 'openfoodfacts', name: 'Ice cream scoop', servingLabel: '1 scoop (60 g)', kcal: 130, protein: 2.5, carbs: 16, fat: 7,
+    minerals: { sodium: 50, potassium: 120, calcium: 80, phosphorus: 70 } },
+  { sourceId: 'seed-sm-fish-fingers', source: 'openfoodfacts', name: 'Frozen fish fingers', servingLabel: '3 fingers (90 g)', kcal: 200, protein: 12, carbs: 18, fat: 9,
+    minerals: { sodium: 350, potassium: 180, calcium: 20, magnesium: 20, phosphorus: 150, iron: 0.8, selenium: 20 } },
+  { sourceId: 'seed-sm-frozen-spinach', source: 'openfoodfacts', name: 'Frozen spinach', servingLabel: '1/2 cup cooked (95 g)', kcal: 30, protein: 3.5, carbs: 4, fat: 0.5,
+    minerals: { sodium: 70, potassium: 300, calcium: 140, magnesium: 70, phosphorus: 50, iron: 2, manganese: 0.6 } },
+  { sourceId: 'seed-sm-frozen-chips', source: 'openfoodfacts', name: 'Frozen oven chips', servingLabel: '100 g cooked', kcal: 180, protein: 2.5, carbs: 28, fat: 7,
+    minerals: { sodium: 250, potassium: 400, magnesium: 20, phosphorus: 60, iron: 0.7 } },
+
+  // Extra pantry / AU supermarket staples
+  { sourceId: 'seed-sm-weetbix', source: 'openfoodfacts', name: 'Weet-Bix / wheat biscuits', servingLabel: '2 biscuits (30 g)', kcal: 110, protein: 4, carbs: 20, fat: 0.5,
+    minerals: { sodium: 80, potassium: 100, magnesium: 40, phosphorus: 120, iron: 3, zinc: 1, manganese: 1.2 } },
+  { sourceId: 'seed-sm-couscous-dry', source: 'openfoodfacts', name: 'Couscous dry', servingLabel: '50 g dry', kcal: 180, protein: 6, carbs: 36, fat: 0.5,
+    minerals: { sodium: 5, potassium: 80, magnesium: 20, phosphorus: 80, iron: 0.8, selenium: 20 } },
+  { sourceId: 'seed-sm-quinoa-dry', source: 'openfoodfacts', name: 'Quinoa dry', servingLabel: '45 g dry', kcal: 165, protein: 6, carbs: 29, fat: 2.5,
+    minerals: { sodium: 5, potassium: 250, magnesium: 90, phosphorus: 200, iron: 2, zinc: 1.5, manganese: 0.9 } },
+  { sourceId: 'seed-sm-stock-cube-chicken', source: 'openfoodfacts', name: 'Chicken stock cube (dissolved)', servingLabel: '1 cube in 250 ml', kcal: 15, protein: 0.5, carbs: 1.5, fat: 0.5,
+    minerals: { sodium: 900, potassium: 30 } },
+  { sourceId: 'seed-sm-baked-beans-salt-reduced', source: 'openfoodfacts', name: 'Baked beans salt-reduced', servingLabel: '1/2 cup (130 g)', kcal: 115, protein: 6, carbs: 21, fat: 0.7,
+    minerals: { sodium: 250, potassium: 360, calcium: 50, magnesium: 40, phosphorus: 100, iron: 2 } },
+  { sourceId: 'seed-sm-sardines-canned', source: 'openfoodfacts', name: 'Sardines canned in oil', servingLabel: '1 can drained (85 g)', kcal: 180, protein: 20, carbs: 0, fat: 11,
+    minerals: { sodium: 350, potassium: 300, calcium: 320, magnesium: 30, phosphorus: 400, iron: 2, selenium: 45, iodine: 30 } },
+  { sourceId: 'seed-sm-spaghetti-sauce', source: 'openfoodfacts', name: 'Pasta sauce jar', servingLabel: '1/2 cup (125 g)', kcal: 70, protein: 2, carbs: 12, fat: 2,
+    minerals: { sodium: 400, potassium: 350, calcium: 30, magnesium: 20, iron: 1 } },
+  { sourceId: 'seed-sm-rice-cakes', source: 'openfoodfacts', name: 'Rice cakes plain', servingLabel: '2 cakes (18 g)', kcal: 70, protein: 1.2, carbs: 15, fat: 0.5,
+    minerals: { sodium: 20, potassium: 40, magnesium: 15, phosphorus: 40, iron: 0.3 } },
+  { sourceId: 'seed-sm-popcorn-air', source: 'openfoodfacts', name: 'Popcorn air-popped', servingLabel: '3 cups (24 g)', kcal: 90, protein: 3, carbs: 18, fat: 1,
+    minerals: { sodium: 2, potassium: 70, magnesium: 30, phosphorus: 70, iron: 0.7, zinc: 0.8 } },
+  { sourceId: 'seed-sm-almonds-bag', source: 'openfoodfacts', name: 'Almonds (bag)', servingLabel: '28 g (handful)', kcal: 164, protein: 6, carbs: 6, fat: 14,
+    minerals: { sodium: 1, potassium: 208, calcium: 76, magnesium: 76, phosphorus: 136, iron: 1, zinc: 0.9, manganese: 0.6 } },
+  { sourceId: 'seed-sm-cashews-bag', source: 'openfoodfacts', name: 'Cashews (bag)', servingLabel: '28 g', kcal: 155, protein: 5, carbs: 9, fat: 12,
+    minerals: { sodium: 3, potassium: 160, magnesium: 70, phosphorus: 140, iron: 1.5, zinc: 1.5, copper: 0.6 } }
+]
+
+/** Supermarket search terms for optional OFF enrichment. */
+const SUPERMARKET_QUERIES = [
+  'canned corn', 'green peas canned', 'baked beans', 'chickpeas canned',
+  'kidney beans', 'tomato passata', 'uht milk', 'evaporated milk',
+  'pasta dry', 'rolled oats', 'peanut butter', 'vegemite',
+  'canned tuna', 'instant noodles', 'cornflakes', 'muesli',
+  'olive oil', 'soy sauce', 'frozen peas', 'frozen berries',
+  'fish fingers', 'ice cream', 'mayonnaise', 'tomato ketchup'
+]
+
+/**
+ * Builds a supermarket / shelf-stable pack: curated seed first, then optional OFF enrichment.
+ * Dedupes by name+brand. Seed ensures useful pantry items even when OFF is unreachable.
+ */
+export async function fetchSupermarketFoodsPack(
+  targetCount = 120
+): Promise<OnlineFoodCandidate[]> {
+  const out: OnlineFoodCandidate[] = []
+  const seen = new Set<string>()
+  let index = 0
+  let failures = 0
+
+  for (const seed of SUPERMARKET_SEED) {
+    const key = foodKey(seed.name, seed.brand)
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push({ ...seed })
+  }
+
+  const batchSize = 4
+  for (let i = 0; i < SUPERMARKET_QUERIES.length && out.length < targetCount; i += batchSize) {
+    const batch = SUPERMARKET_QUERIES.slice(i, i + batchSize)
+    const results = await Promise.all(
+      batch.map(async (term) => {
+        try {
+          return await offSearch(term, 10)
+        } catch {
+          failures++
+          return [] as OffProduct[]
+        }
+      })
+    )
+    for (const products of results) {
+      for (const p of products) {
+        if (out.length >= targetCount) break
+        const food = parseProduct(p, index++)
+        if (!food) continue
+        const key = foodKey(food.name, food.brand)
+        if (seen.has(key)) continue
+        seen.add(key)
+        out.push(food)
+      }
+    }
+  }
+
+  if (out.length === 0 && failures > 0) {
+    throw new Error(
+      'Open Food Facts is unreachable right now. Try again in a few minutes.'
+    )
+  }
+
+  return out
+}
+
+export function getSupermarketSeedInputs(): Omit<Food, 'id'>[] {
+  return SUPERMARKET_SEED.map(toFoodInput)
 }

@@ -1,4 +1,4 @@
-import { app, dialog, BrowserWindow } from 'electron'
+﻿import { app, dialog, BrowserWindow } from 'electron'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import { randomUUID } from 'crypto'
@@ -18,7 +18,7 @@ import type {
 } from '../shared/types'
 import { buildPortionPlan, type NutritionRef } from './portions'
 import { analyzeNutrition } from './nutritionAnalysis'
-import { getDrinkSeedInputs, getHomemadeSeedInputs } from './nutritionOnline'
+import { getDrinkSeedInputs, getHomemadeSeedInputs, getSupermarketSeedInputs } from './nutritionOnline'
 import {
   defaultMineralGoals,
   normalizeMinerals,
@@ -27,7 +27,7 @@ import {
 import { estimateExerciseKcal, resolveMetFromName } from '../shared/exerciseMet'
 
 const STORE_FILE = 'myhealth-lw.json'
-const DATA_VERSION = 5
+const DATA_VERSION = 6
 
 function defaultSettings(): AppSettings {
   return {
@@ -40,13 +40,13 @@ function defaultSettings(): AppSettings {
     sex: '',
     weightGoalKg: undefined,
     weightStartKg: undefined,
-    // AU/NZ NRV / WHO-ish adult defaults — see shared/minerals.ts
+    // AU/NZ NRV / WHO-ish adult defaults â€” see shared/minerals.ts
     mineralGoals: defaultMineralGoals()
   }
 }
 
 function seedFoods(): Food[] {
-  // Approximate USDA-style minerals per listed serving (mg; Se/I in µg). Undefined when unknown.
+  // Approximate USDA-style minerals per listed serving (mg; Se/I in Âµg). Undefined when unknown.
   const items: Omit<Food, 'id'>[] = [
     { name: 'Chicken breast, grilled', brand: '', servingLabel: '100 g', kcal: 165, protein: 31, carbs: 0, fat: 3.6,
       minerals: { sodium: 74, potassium: 256, calcium: 15, magnesium: 29, phosphorus: 228, iron: 1, zinc: 1, copper: 0.05, manganese: 0.02, selenium: 27, iodine: 7 } },
@@ -174,6 +174,26 @@ function emptyData(): AppData {
     })
     existing.add(key)
   }
+  for (const input of getSupermarketSeedInputs()) {
+    const name = input.name.trim()
+    if (!name) continue
+    const brand = input.brand?.trim() || undefined
+    const key = `${name.toLowerCase()}|${(brand ?? '').toLowerCase()}`
+    if (existing.has(key)) continue
+    const minerals = normalizeMinerals(input.minerals)
+    foods.push({
+      id: randomUUID(),
+      name,
+      brand,
+      servingLabel: input.servingLabel.trim() || '1 serving',
+      kcal: Number(input.kcal) || 0,
+      protein: Number(input.protein) || 0,
+      carbs: Number(input.carbs) || 0,
+      fat: Number(input.fat) || 0,
+      ...(minerals ? { minerals } : {})
+    })
+    existing.add(key)
+  }
   return {
     version: DATA_VERSION,
     settings: defaultSettings(),
@@ -259,6 +279,36 @@ function ensureHomemadeFoods(data: AppData): number {
   return created
 }
 
+/** Merge curated supermarket / shelf-stable seeds into foods (name|brand dedupe). Returns count created. Does not save. */
+function ensureSupermarketFoods(data: AppData): number {
+  const existing = new Set(
+    data.foods.map((f) => `${f.name.toLowerCase()}|${(f.brand ?? '').toLowerCase()}`)
+  )
+  let created = 0
+  for (const input of getSupermarketSeedInputs()) {
+    const name = input.name.trim()
+    if (!name) continue
+    const brand = input.brand?.trim() || undefined
+    const key = `${name.toLowerCase()}|${(brand ?? '').toLowerCase()}`
+    if (existing.has(key)) continue
+    const minerals = normalizeMinerals(input.minerals)
+    data.foods.push({
+      id: randomUUID(),
+      name,
+      brand,
+      servingLabel: input.servingLabel.trim() || '1 serving',
+      kcal: Number(input.kcal) || 0,
+      protein: Number(input.protein) || 0,
+      carbs: Number(input.carbs) || 0,
+      fat: Number(input.fat) || 0,
+      ...(minerals ? { minerals } : {})
+    })
+    existing.add(key)
+    created++
+  }
+  return created
+}
+
 function load(): AppData {
   if (cache) return cache
   const path = dataPath()
@@ -301,6 +351,17 @@ function load(): AppData {
       const names = new Set(cache.foods.map((f) => f.name.toLowerCase()))
       if (!names.has('fried egg (sunny side)') || !names.has('steamed white fish fillet')) {
         const n = ensureHomemadeFoods(cache)
+        if (n > 0) migrated = true
+      }
+    }
+    if (rawVersion < 6) {
+      const n = ensureSupermarketFoods(cache)
+      if (n > 0) migrated = true
+    } else {
+      // Safety net: if supermarket pack markers are missing, seed anyway.
+      const names = new Set(cache.foods.map((f) => f.name.toLowerCase()))
+      if (!names.has('corn kernels (canned)') || !names.has('tomato passata')) {
+        const n = ensureSupermarketFoods(cache)
         if (n > 0) migrated = true
       }
     }

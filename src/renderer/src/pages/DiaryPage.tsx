@@ -1,8 +1,8 @@
-import type React from 'react'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import type { DiaryEntry, Food, MealType } from '../../../shared/types'
 import { scaleMinerals } from '../../../shared/minerals'
 import { todayIso } from '../lib/format'
+import NutritionDetail from '../lib/NutritionDetail'
 
 type Props = { onToast: (msg: string) => void }
 
@@ -34,6 +34,8 @@ export default function DiaryPage({ onToast }: Props): React.JSX.Element {
   const [meal, setMeal] = useState<MealType>('breakfast')
   const [query, setQuery] = useState('')
   const [foods, setFoods] = useState<Food[]>([])
+  const [allFoods, setAllFoods] = useState<Food[]>([])
+  const [foodsLoading, setFoodsLoading] = useState(false)
   const [selectedFoodId, setSelectedFoodId] = useState('')
   const [qty, setQty] = useState('1')
   const [custom, setCustom] = useState({
@@ -44,6 +46,7 @@ export default function DiaryPage({ onToast }: Props): React.JSX.Element {
     fat: ''
   })
   const [mode, setMode] = useState<'db' | 'custom'>('db')
+  const [detailId, setDetailId] = useState<string | null>(null)
 
   const reload = useCallback(async () => {
     const [list, dash, settings] = await Promise.all([
@@ -61,15 +64,61 @@ export default function DiaryPage({ onToast }: Props): React.JSX.Element {
   }, [reload, onToast])
 
   useEffect(() => {
+    void window.api
+      .listFoods('')
+      .then(setAllFoods)
+      .catch(() => {
+        /* non-fatal for detail lookup */
+      })
+  }, [entries.length])
+
+  // Always load the full food DB when opening Add (empty query), then filter as user types.
+  useEffect(() => {
     if (!showAdd || mode !== 'db') return
+    let cancelled = false
+    setFoodsLoading(true)
     const t = window.setTimeout(() => {
-      void window.api.listFoods(query).then(setFoods)
-    }, 150)
-    return () => window.clearTimeout(t)
-  }, [query, showAdd, mode])
+      void window.api
+        .listFoods(query.trim() ? query : '')
+        .then((list) => {
+          if (!cancelled) setFoods(list)
+        })
+        .catch(() => {
+          if (!cancelled) onToast('Failed to load foods for diary')
+        })
+        .finally(() => {
+          if (!cancelled) setFoodsLoading(false)
+        })
+    }, query.trim() ? 150 : 0)
+    return () => {
+      cancelled = true
+      window.clearTimeout(t)
+    }
+  }, [query, showAdd, mode, onToast])
 
   const dayTotals = useMemo(() => sum(entries), [entries])
   const remaining = calorieGoal - dayTotals.kcal + exerciseKcal
+
+  const foodById = useMemo(() => {
+    const m = new Map<string, Food>()
+    for (const f of allFoods) m.set(f.id, f)
+    for (const f of foods) m.set(f.id, f)
+    return m
+  }, [allFoods, foods])
+
+  function openAdd(forMeal?: MealType): void {
+    if (forMeal) setMeal(forMeal)
+    setMode('db')
+    setQuery('')
+    setSelectedFoodId('')
+    setQty('1')
+    setShowAdd(true)
+    // Kick an immediate full-list load
+    void window.api
+      .listFoods('')
+      .then(setFoods)
+      .catch(() => onToast('Failed to load foods for diary'))
+  }
 
   async function addFromFood(): Promise<void> {
     const food = foods.find((f) => f.id === selectedFoodId)
@@ -103,17 +152,50 @@ export default function DiaryPage({ onToast }: Props): React.JSX.Element {
       return
     }
     const q = Number(qty) || 1
+    const name = custom.name.trim()
+    const kcalEach = Number(custom.kcal) || 0
+    const proteinEach = Number(custom.protein) || 0
+    const carbsEach = Number(custom.carbs) || 0
+    const fatEach = Number(custom.fat) || 0
+
+    // Share into Foods DB unless a same name (no brand) already exists.
+    let foodId: string | undefined
+    try {
+      const existing = await window.api.listFoods(name)
+      const dup = existing.find(
+        (f) => f.name.toLowerCase() === name.toLowerCase() && !(f.brand ?? '').trim()
+      )
+      if (dup) {
+        foodId = dup.id
+      } else {
+        const created = await window.api.createFood({
+          name,
+          servingLabel: '1 serving',
+          kcal: kcalEach,
+          protein: proteinEach,
+          carbs: carbsEach,
+          fat: fatEach
+        })
+        foodId = created.id
+        onToast('Custom food saved to Foods and diary')
+      }
+    } catch {
+      // Still allow diary entry if food create fails
+    }
+
     await window.api.addDiary({
       date,
       meal,
-      name: custom.name.trim(),
+      foodId,
+      name,
       servingQty: q,
-      kcal: (Number(custom.kcal) || 0) * q,
-      protein: (Number(custom.protein) || 0) * q,
-      carbs: (Number(custom.carbs) || 0) * q,
-      fat: (Number(custom.fat) || 0) * q
+      kcal: kcalEach * q,
+      protein: proteinEach * q,
+      carbs: carbsEach * q,
+      fat: fatEach * q
     })
-    onToast('Custom food added')
+    if (!foodId) onToast('Custom food added to diary')
+    else if (!custom.name) onToast('Added to diary')
     setShowAdd(false)
     setCustom({ name: '', kcal: '', protein: '', carbs: '', fat: '' })
     await reload()
@@ -136,14 +218,7 @@ export default function DiaryPage({ onToast }: Props): React.JSX.Element {
             value={date}
             onChange={(e) => setDate(e.target.value)}
           />
-          <button
-            type="button"
-            className="btn primary"
-            onClick={() => {
-              setShowAdd(true)
-              setMode('db')
-            }}
-          >
+          <button type="button" className="btn primary" onClick={() => openAdd()}>
             Add food
           </button>
         </div>
@@ -165,10 +240,10 @@ export default function DiaryPage({ onToast }: Props): React.JSX.Element {
           </div>
         </div>
         <div className="card">
-          <div className="label">P / C / F</div>
+          <div className="label">Protein / Carbohydrate / Fat</div>
           <div className="value small-value">
-            {Math.round(dayTotals.protein)}g · {Math.round(dayTotals.carbs)}g ·{' '}
-            {Math.round(dayTotals.fat)}g
+            {Math.round(dayTotals.protein)} g · {Math.round(dayTotals.carbs)} g ·{' '}
+            {Math.round(dayTotals.fat)} g
           </div>
         </div>
       </div>
@@ -212,7 +287,11 @@ export default function DiaryPage({ onToast }: Props): React.JSX.Element {
               <button
                 type="button"
                 className={`btn ${mode === 'db' ? 'primary' : ''}`}
-                onClick={() => setMode('db')}
+                onClick={() => {
+                  setMode('db')
+                  setQuery('')
+                  void window.api.listFoods('').then(setFoods)
+                }}
               >
                 From foods
               </button>
@@ -234,41 +313,73 @@ export default function DiaryPage({ onToast }: Props): React.JSX.Element {
                   className="input"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search…"
+                  placeholder="Type to filter… (all foods shown when empty)"
                 />
               </label>
-              <div className="table-wrap food-pick">
-                <table className="data">
-                  <thead>
-                    <tr>
-                      <th />
-                      <th>Name</th>
-                      <th>Serving</th>
-                      <th>kcal</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {foods.slice(0, 40).map((f) => (
-                      <tr key={f.id} className="clickable" onClick={() => setSelectedFoodId(f.id)}>
-                        <td>
-                          <input
-                            type="radio"
-                            checked={selectedFoodId === f.id}
-                            onChange={() => setSelectedFoodId(f.id)}
-                          />
-                        </td>
-                        <td>
-                          {f.name}
-                          {f.brand ? ` · ${f.brand}` : ''}
-                        </td>
-                        <td>{f.servingLabel}</td>
-                        <td>{f.kcal}</td>
+              {foodsLoading && foods.length === 0 ? (
+                <p className="muted">Loading foods…</p>
+              ) : foods.length === 0 ? (
+                <div className="empty">
+                  <h3>No foods in your database</h3>
+                  <p>
+                    Open the Foods page and add items, or wait for auto-seeded drinks / homemade /
+                    supermarket packs. Then come back to add diary entries.
+                  </p>
+                </div>
+              ) : (
+                <div className="table-wrap food-pick">
+                  <table className="data">
+                    <thead>
+                      <tr>
+                        <th />
+                        <th>Name</th>
+                        <th>Serving</th>
+                        <th>kcal</th>
+                        <th>Protein</th>
+                        <th>Carbohydrate</th>
+                        <th>Fat</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <button type="button" className="btn primary" onClick={() => void addFromFood()}>
+                    </thead>
+                    <tbody>
+                      {foods.slice(0, 80).map((f) => (
+                        <tr
+                          key={f.id}
+                          className="clickable"
+                          onClick={() => setSelectedFoodId(f.id)}
+                        >
+                          <td>
+                            <input
+                              type="radio"
+                              checked={selectedFoodId === f.id}
+                              onChange={() => setSelectedFoodId(f.id)}
+                            />
+                          </td>
+                          <td>
+                            {f.name}
+                            {f.brand ? ` · ${f.brand}` : ''}
+                          </td>
+                          <td>{f.servingLabel}</td>
+                          <td>{f.kcal}</td>
+                          <td>{f.protein}</td>
+                          <td>{f.carbs}</td>
+                          <td>{f.fat}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {foods.length > 80 ? (
+                    <p className="muted small">Showing first 80 of {foods.length} — refine search.</p>
+                  ) : (
+                    <p className="muted small">{foods.length} foods available</p>
+                  )}
+                </div>
+              )}
+              <button
+                type="button"
+                className="btn primary"
+                disabled={!selectedFoodId}
+                onClick={() => void addFromFood()}
+              >
                 Add selected
               </button>
             </>
@@ -301,7 +412,7 @@ export default function DiaryPage({ onToast }: Props): React.JSX.Element {
                 />
               </label>
               <label>
-                Carbs g
+                Carbohydrate g
                 <input
                   className="input"
                   type="number"
@@ -319,6 +430,10 @@ export default function DiaryPage({ onToast }: Props): React.JSX.Element {
                 />
               </label>
               <div className="full">
+                <p className="muted small" style={{ marginTop: 0 }}>
+                  Custom entries are also saved into your Foods database (unless the same name
+                  already exists) so you can reuse them later.
+                </p>
                 <button type="button" className="btn primary" onClick={() => void addCustom()}>
                   Add custom
                 </button>
@@ -336,18 +451,11 @@ export default function DiaryPage({ onToast }: Props): React.JSX.Element {
             <div className="panel-header">
               <h2>{m.label}</h2>
               <span className="muted">
-                {Math.round(totals.kcal)} kcal · P {Math.round(totals.protein)} · C{' '}
-                {Math.round(totals.carbs)} · F {Math.round(totals.fat)}
+                {Math.round(totals.kcal)} kcal · Protein {Math.round(totals.protein)} g ·
+                Carbohydrate {Math.round(totals.carbs)} g · Fat {Math.round(totals.fat)} g
               </span>
               <div className="spacer" />
-              <button
-                type="button"
-                className="btn compact"
-                onClick={() => {
-                  setMeal(m.id)
-                  setShowAdd(true)
-                }}
-              >
+              <button type="button" className="btn compact" onClick={() => openAdd(m.id)}>
                 + Add
               </button>
             </div>
@@ -361,31 +469,87 @@ export default function DiaryPage({ onToast }: Props): React.JSX.Element {
                       <th>Food</th>
                       <th>Qty</th>
                       <th>kcal</th>
-                      <th>P</th>
-                      <th>C</th>
-                      <th>F</th>
+                      <th>Protein (g)</th>
+                      <th>Carbohydrate (g)</th>
+                      <th>Fat (g)</th>
                       <th />
                     </tr>
                   </thead>
                   <tbody>
                     {mealEntries.map((e) => (
-                      <tr key={e.id}>
-                        <td>{e.name}</td>
-                        <td>{e.servingQty}</td>
-                        <td>{Math.round(e.kcal)}</td>
-                        <td>{Math.round(e.protein)}</td>
-                        <td>{Math.round(e.carbs)}</td>
-                        <td>{Math.round(e.fat)}</td>
-                        <td className="row-actions">
-                          <button
-                            type="button"
-                            className="btn danger compact"
-                            onClick={() => void remove(e.id)}
-                          >
-                            Delete
-                          </button>
-                        </td>
-                      </tr>
+                      <Fragment key={e.id}>
+                        <tr>
+                          <td>{e.name}</td>
+                          <td>{e.servingQty}</td>
+                          <td>{Math.round(e.kcal)}</td>
+                          <td>{Math.round(e.protein)}</td>
+                          <td>{Math.round(e.carbs)}</td>
+                          <td>{Math.round(e.fat)}</td>
+                          <td className="row-actions">
+                            <button
+                              type="button"
+                              className="btn compact"
+                              onClick={() =>
+                                setDetailId((id) => (id === e.id ? null : e.id))
+                              }
+                            >
+                              Detail
+                            </button>
+                            <button
+                              type="button"
+                              className="btn danger compact"
+                              onClick={() => void remove(e.id)}
+                            >
+                              Delete
+                            </button>
+                          </td>
+                        </tr>
+                        {detailId === e.id ? (
+                          <tr className="detail-row">
+                            <td colSpan={7}>
+                              <NutritionDetail
+                                open
+                                scaled
+                                onClose={() => setDetailId(null)}
+                                data={{
+                                  name: e.name,
+                                  servingLabel: `${e.servingQty} × serving`,
+                                  servingQty: e.servingQty,
+                                  kcal: e.kcal,
+                                  protein: e.protein,
+                                  carbs: e.carbs,
+                                  fat: e.fat,
+                                  minerals: e.minerals,
+                                  perServing: e.foodId
+                                    ? (() => {
+                                        const f = foodById.get(e.foodId!)
+                                        // Fallback: divide entry by qty when food not in current list
+                                        if (f) {
+                                          return {
+                                            servingLabel: f.servingLabel,
+                                            kcal: f.kcal,
+                                            protein: f.protein,
+                                            carbs: f.carbs,
+                                            fat: f.fat,
+                                            minerals: f.minerals
+                                          }
+                                        }
+                                        const q = e.servingQty || 1
+                                        return {
+                                          servingLabel: '1 serving',
+                                          kcal: e.kcal / q,
+                                          protein: e.protein / q,
+                                          carbs: e.carbs / q,
+                                          fat: e.fat / q
+                                        }
+                                      })()
+                                    : undefined
+                                }}
+                              />
+                            </td>
+                          </tr>
+                        ) : null}
+                      </Fragment>
                     ))}
                   </tbody>
                 </table>

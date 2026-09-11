@@ -37,9 +37,12 @@ import {
   fetchCommonFoodsPack,
   fetchDrinksPack,
   fetchHomemadeFoodsPack,
+  fetchSupermarketFoodsPack,
   searchOpenFoodFacts,
   toFoodInput
 } from './nutritionOnline'
+import { exportAnalysisPdf } from './analysisPdf'
+import { savePngDataUrl } from './savePng'
 import type { NutritionRef } from './portions'
 import type {
   AppSettings,
@@ -128,6 +131,12 @@ function registerIpc(getWindow: () => BrowserWindow | null): void {
     return { ...result, fetched: pack.length }
   })
 
+  ipcMain.handle('nutrition:importSupermarketPack', async () => {
+    const pack = await fetchSupermarketFoodsPack()
+    const result = createFoodsBulk(pack.map(toFoodInput))
+    return { ...result, fetched: pack.length }
+  })
+
   ipcMain.handle('shopping:list', () => listShopping())
   ipcMain.handle(
     'shopping:add',
@@ -174,7 +183,7 @@ function registerIpc(getWindow: () => BrowserWindow | null): void {
           fat: hit.fat
         })
       } catch {
-        // offline / OFF down â€” leave unmatched
+        // offline / OFF down Ã¢â‚¬â€ leave unmatched
       }
     }
     return getPortionPlan(days, offline)
@@ -205,6 +214,16 @@ function registerIpc(getWindow: () => BrowserWindow | null): void {
   ipcMain.handle('data:export', () => exportDataToFile(getWindow()))
   ipcMain.handle('data:import', () => importDataFromFile(getWindow()))
   ipcMain.handle('data:reset', () => resetData())
+
+  ipcMain.handle('analysis:exportPdf', (_e, days: number) =>
+    exportAnalysisPdf(getWindow(), typeof days === 'number' ? days : 1)
+  )
+
+  ipcMain.handle(
+    'data:savePng',
+    (_e, dataUrl: string, defaultName?: string) =>
+      savePngDataUrl(getWindow(), dataUrl, defaultName || 'MyHealth-Plate.png')
+  )
 }
 
 app.commandLine.appendSwitch('disable-gpu-shader-disk-cache')

@@ -105,6 +105,7 @@ export default function AnalysisPage({ onToast }: Props): React.JSX.Element {
   const [days, setDays] = useState(1)
   const [analysis, setAnalysis] = useState<NutritionAnalysis | null>(null)
   const [loading, setLoading] = useState(true)
+  const [exportingPdf, setExportingPdf] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -125,6 +126,24 @@ export default function AnalysisPage({ onToast }: Props): React.JSX.Element {
     }
   }, [date, days, onToast])
 
+
+  async function handleExportPdf(): Promise<void> {
+    setExportingPdf(true)
+    try {
+      const res = await window.api.exportAnalysisPdf(days)
+      if (res.cancelled) {
+        onToast('PDF export cancelled')
+      } else if (res.error) {
+        onToast(res.error)
+      } else if (res.path) {
+        onToast(`PDF saved: ${res.path}`)
+      }
+    } catch (err) {
+      onToast(err instanceof Error ? err.message : 'PDF export failed')
+    } finally {
+      setExportingPdf(false)
+    }
+  }
   const rangeLabel =
     days === 1
       ? date
@@ -153,6 +172,14 @@ export default function AnalysisPage({ onToast }: Props): React.JSX.Element {
               style={{ marginTop: 4, minWidth: 150 }}
             />
           </label>
+          <button
+            type="button"
+            className="btn primary"
+            disabled={exportingPdf || !analysis}
+            onClick={() => void handleExportPdf()}
+          >
+            {exportingPdf ? 'Exporting…' : 'Export PDF'}
+          </button>
         </div>
       </div>
 
@@ -216,7 +243,7 @@ export default function AnalysisPage({ onToast }: Props): React.JSX.Element {
               </div>
             </div>
             <div className="card">
-              <div className="label">Carbs</div>
+              <div className="label">Carbohydrate</div>
               <div className="value">{Math.round(analysis.vsGoals.carbs.actual)} g</div>
               <div className="muted small">
                 Goal {analysis.vsGoals.carbs.goal} g ·{' '}
@@ -249,7 +276,7 @@ export default function AnalysisPage({ onToast }: Props): React.JSX.Element {
               color="#2f6f4e"
             />
             <GoalBar
-              label="Carbs"
+              label="Carbohydrate"
               unit="g"
               vs={analysis.vsGoals.carbs}
               color="#c47a2c"
@@ -258,8 +285,7 @@ export default function AnalysisPage({ onToast }: Props): React.JSX.Element {
             {days > 1 && (
               <p className="muted small" style={{ marginTop: 8, marginBottom: 0 }}>
                 Period totals: {Math.round(analysis.totals.kcal)} kcal ·{' '}
-                {Math.round(analysis.totals.protein)} g P · {Math.round(analysis.totals.carbs)} g
-                C · {Math.round(analysis.totals.fat)} g F · {analysis.entryCount} entries
+                {Math.round(analysis.totals.protein)} g Protein · {Math.round(analysis.totals.carbs)} g Carbohydrate · {Math.round(analysis.totals.fat)} g Fat · {analysis.entryCount} entries
               </p>
             )}
           </div>
@@ -304,7 +330,7 @@ export default function AnalysisPage({ onToast }: Props): React.JSX.Element {
           <div className="panel">
             <div className="panel-header">
               <h2>Macro balance</h2>
-              <span className="badge-soft">% of kcal from P / C / F</span>
+              <span className="badge-soft">% of kcal from Protein / Carbohydrate / Fat</span>
             </div>
             <BalanceBar
               label="Protein (4 kcal/g)"
@@ -312,7 +338,7 @@ export default function AnalysisPage({ onToast }: Props): React.JSX.Element {
               color="#2f6f4e"
             />
             <BalanceBar
-              label="Carbs (4 kcal/g)"
+              label="Carbohydrate (4 kcal/g)"
               pct={analysis.macroBalance.carbsPct}
               color="#c47a2c"
             />
@@ -336,8 +362,8 @@ export default function AnalysisPage({ onToast }: Props): React.JSX.Element {
                       <div className="label">{label}</div>
                       <div className="value small-value">{Math.round(m.kcal)} kcal</div>
                       <div className="muted small">
-                        P {Math.round(m.protein)} · C {Math.round(m.carbs)} · F{' '}
-                        {Math.round(m.fat)}
+                        Protein {Math.round(m.protein)} g · Carbohydrate {Math.round(m.carbs)} g ·
+                        Fat {Math.round(m.fat)} g
                       </div>
                     </div>
                   )
