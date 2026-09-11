@@ -29,7 +29,7 @@ import {
 import { extractTextFromPdfFile } from './pdfText'
 import { buildPortionPlan, type NutritionRef } from './portions'
 import { analyzeNutrition } from './nutritionAnalysis'
-import { getDrinkSeedInputs, getHomemadeSeedInputs, getSupermarketSeedInputs, getHealthyShelfSeedInputs, getVitaminSeedInputs } from './nutritionOnline'
+import { getDrinkSeedInputs, getHomemadeSeedInputs, getSupermarketSeedInputs, getHealthyShelfSeedInputs, getVitaminSeedInputs, getFishMeatSeedInputs } from './nutritionOnline'
 import {
   defaultMineralGoals,
   normalizeMinerals,
@@ -39,7 +39,7 @@ import { estimateExerciseKcal, resolveMetFromName } from '../shared/exerciseMet'
 import { recommendWaterMl } from '../shared/water'
 
 const STORE_FILE = NEW_STORE
-const DATA_VERSION = 11
+const DATA_VERSION = 12
 
 function defaultSettings(): AppSettings {
   return {
@@ -229,6 +229,26 @@ function emptyData(): AppData {
     existing.add(key)
   }
   for (const input of getVitaminSeedInputs()) {
+    const name = input.name.trim()
+    if (!name) continue
+    const brand = input.brand?.trim() || undefined
+    const key = `${name.toLowerCase()}|${(brand ?? '').toLowerCase()}`
+    if (existing.has(key)) continue
+    const minerals = normalizeMinerals(input.minerals)
+    foods.push({
+      id: randomUUID(),
+      name,
+      brand,
+      servingLabel: input.servingLabel.trim() || '1 serving',
+      kcal: Number(input.kcal) || 0,
+      protein: Number(input.protein) || 0,
+      carbs: Number(input.carbs) || 0,
+      fat: Number(input.fat) || 0,
+      ...(minerals ? { minerals } : {})
+    })
+    existing.add(key)
+  }
+  for (const input of getFishMeatSeedInputs()) {
     const name = input.name.trim()
     if (!name) continue
     const brand = input.brand?.trim() || undefined
@@ -447,6 +467,36 @@ function ensureVitaminFoods(data: AppData): number {
   return created
 }
 
+/** Merge curated fish & meat variety seeds into foods (name|brand dedupe). Returns count created. Does not save. */
+function ensureFishMeatFoods(data: AppData): number {
+  const existing = new Set(
+    data.foods.map((f) => `${f.name.toLowerCase()}|${(f.brand ?? '').toLowerCase()}`)
+  )
+  let created = 0
+  for (const input of getFishMeatSeedInputs()) {
+    const name = input.name.trim()
+    if (!name) continue
+    const brand = input.brand?.trim() || undefined
+    const key = `${name.toLowerCase()}|${(brand ?? '').toLowerCase()}`
+    if (existing.has(key)) continue
+    const minerals = normalizeMinerals(input.minerals)
+    data.foods.push({
+      id: randomUUID(),
+      name,
+      brand,
+      servingLabel: input.servingLabel.trim() || '1 serving',
+      kcal: Number(input.kcal) || 0,
+      protein: Number(input.protein) || 0,
+      carbs: Number(input.carbs) || 0,
+      fat: Number(input.fat) || 0,
+      ...(minerals ? { minerals } : {})
+    })
+    existing.add(key)
+    created++
+  }
+  return created
+}
+
 /** Ensure healthProfile exists and is shaped. Does not save. */
 function ensureHealthProfile(data: AppData): HealthProfile {
   data.healthProfile = ensureHealthProfileShape(data.healthProfile)
@@ -562,6 +612,17 @@ function load(): AppData {
       const names = new Set(cache.foods.map((f) => f.name.toLowerCase()))
       if (!names.has('multivitamin tablet') || !names.has('one-a-day ginkgo 6000')) {
         const n = ensureVitaminFoods(cache)
+        if (n > 0) migrated = true
+      }
+    }
+    if (rawVersion < 12) {
+      const n = ensureFishMeatFoods(cache)
+      if (n > 0) migrated = true
+    } else {
+      // Safety net: if fish & meat pack markers are missing, seed anyway.
+      const names = new Set(cache.foods.map((f) => f.name.toLowerCase()))
+      if (!names.has('barramundi grilled') || !names.has('kangaroo steak grilled')) {
+        const n = ensureFishMeatFoods(cache)
         if (n > 0) migrated = true
       }
     }

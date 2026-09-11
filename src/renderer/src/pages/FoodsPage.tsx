@@ -3,7 +3,7 @@ import type { Food } from '../../../shared/types'
 import NutritionDetail from '../lib/NutritionDetail'
 
 type Props = { onToast: (msg: string) => void }
-type FoodKindFilter = 'all' | 'foods' | 'drinks' | 'homemade' | 'supermarket' | 'healthyShelf' | 'supplements'
+type FoodKindFilter = 'all' | 'foods' | 'drinks' | 'homemade' | 'supermarket' | 'healthyShelf' | 'supplements' | 'fishMeat'
 
 const DRINK_SERVING_RE = /ml|cup|oz|litre|liter|bottle/i
 const DRINK_NAME_RE =
@@ -44,6 +44,14 @@ function isVitaminFood(f: Food): boolean {
   const blob = `${f.name} ${f.brand ?? ''}`
   return VITAMIN_NAME_RE.test(blob) || VITAMIN_BRAND_RE.test(blob)
 }
+
+const FISH_MEAT_NAME_RE =
+  /salmon|trout|cod|haddock|flathead|barramundi|snapper|bream|whiting|basa|pangasius|tilapia|tuna|mackerel|sardine|anchov|herring|swordfish|mahi-?mahi|kingfish|yellowtail|jewfish|mulloway|mullet|ocean perch|flake|gummy shark|\beel\b|calamari|squid|octopus|mussel|oyster|scallop|\bcrab\b|lobster|prawn|shrimp|crayfish|fish cake|smoked salmon|smoked trout|\bbeef\b|rump|scotch fillet|sirloin|eye fillet|brisket|short rib|osso buco|\blamb\b|\bpork\b|schnitzel|spare rib|\bchicken\b|drumstick|\bwing\b|maryland|\bturkey\b|\bduck\b|kangaroo|\bveal\b|\bbacon\b|\bham\b|prosciutto|chorizo|sausage|salami|mince lean|mince regular|mince cooked/i
+
+function isFishMeatFood(f: Food): boolean {
+  return FISH_MEAT_NAME_RE.test(f.name)
+}
+
 
 const blank = {
   name: '',
@@ -86,7 +94,8 @@ export default function FoodsPage({ onToast }: Props): React.JSX.Element {
           !isDrinkFood(f) &&
           !isHomemadeFood(f) &&
           !isHealthyShelfFood(f) &&
-          !isVitaminFood(f)
+          !isVitaminFood(f) &&
+          !isFishMeatFood(f)
       )
     if (kindFilter === 'healthyShelf')
       return foods.filter(
@@ -94,13 +103,18 @@ export default function FoodsPage({ onToast }: Props): React.JSX.Element {
       )
     if (kindFilter === 'supplements')
       return foods.filter((f) => isVitaminFood(f) && !isDrinkFood(f) && !isHomemadeFood(f))
+    if (kindFilter === 'fishMeat')
+      return foods.filter(
+        (f) => isFishMeatFood(f) && !isDrinkFood(f) && !isVitaminFood(f)
+      )
     return foods.filter(
       (f) =>
         !isDrinkFood(f) &&
         !isHomemadeFood(f) &&
         !isSupermarketFood(f) &&
         !isHealthyShelfFood(f) &&
-        !isVitaminFood(f)
+        !isVitaminFood(f) &&
+        !isFishMeatFood(f)
     )
   }, [foods, kindFilter])
 
@@ -168,6 +182,7 @@ export default function FoodsPage({ onToast }: Props): React.JSX.Element {
               ['homemade', 'Homemade'],
               ['supermarket', 'Supermarket'],
               ['healthyShelf', 'Healthy shelf'],
+              ['fishMeat', 'Fish & meat'],
               ['supplements', 'Supplements']
             ] as const
           ).map(([id, label]) => (
@@ -288,7 +303,7 @@ export default function FoodsPage({ onToast }: Props): React.JSX.Element {
             <h3>No foods found</h3>
             <p>
               Add a food, clear the search, or switch All / Foods / Drinks / Homemade /
-              Supermarket / Healthy shelf / Supplements. Shelf-stable, drink, and vitamin packs are auto-seeded into this database.
+              Supermarket / Healthy shelf / Fish & meat / Supplements. Shelf-stable, drink, fish & meat, and vitamin packs are auto-seeded into this database.
             </p>
           </div>
         ) : (
