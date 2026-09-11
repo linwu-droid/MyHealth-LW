@@ -450,3 +450,146 @@ textarea.input {
   resize: vertical;
   min-height: 96px;
 }
+
+/* Portion daily / day-by-day meal plan */
+.portion-section {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.portion-section-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+.portion-section-header h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  color: var(--sage-deep);
+}
+
+.badge-soft {
+  display: inline-block;
+  font-size: 0.78rem;
+  color: var(--sage-deep);
+  background: rgba(95, 125, 101, 0.12);
+  border: 1px solid rgba(95, 125, 101, 0.28);
+  border-radius: 999px;
+  padding: 3px 10px;
+}
+
+.cards.meal-cards {
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  margin-bottom: 0;
+}
+
+.cards.meal-cards.compact {
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+}
+
+.meal-plan-card {
+  background: linear-gradient(180deg, #fffcf6 0%, #f3eee3 100%);
+  border-color: #d5cebe;
+}
+
+.meal-plan-card.compact {
+  padding: 12px 14px;
+}
+
+.meal-item-list {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.meal-item-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid var(--line);
+}
+
+.meal-item-name {
+  font-weight: 600;
+  color: var(--ink);
+  font-size: 0.92rem;
+}
+
+.meal-item-macros {
+  display: block;
+}
+
+.meal-empty {
+  margin: 10px 0 0;
+}
+
+.day-plan-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.day-plan-day {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 0;
+  box-shadow: none;
+}
+
+.day-plan-day > summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 14px;
+  color: var(--sage-deep);
+  font-weight: 600;
+  user-select: none;
+}
+
+.day-plan-day > summary::-webkit-details-marker {
+  display: none;
+}
+
+.day-plan-day > summary::before {
+  content: '▸';
+  display: inline-block;
+  margin-right: 8px;
+  color: var(--sage);
+  transition: transform 0.15s ease;
+}
+
+.day-plan-day[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.day-plan-day > summary .day-plan-title {
+  font-size: 0.95rem;
+}
+
+.day-plan-day[open] > summary {
+  border-bottom: 1px solid var(--line);
+  background: rgba(95, 125, 101, 0.06);
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+
+.day-plan-day .meal-cards {
+  padding: 12px 14px 14px;
+}

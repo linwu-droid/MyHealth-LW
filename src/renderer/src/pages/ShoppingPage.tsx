@@ -1,6 +1,12 @@
 import type React from 'react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import type { Food, PortionPlan, ShoppingListItem } from '../../../shared/types'
+import type {
+  Food,
+  MacroTotals,
+  MainMealType,
+  PortionPlan,
+  ShoppingListItem
+} from '../../../shared/types'
 import { todayIso } from '../lib/format'
 
 type Props = { onToast: (msg: string) => void }
@@ -32,6 +38,15 @@ export const SHOPPING_UNITS = [
 
 const DEFAULT_UNIT = 'g'
 const OTHER_UNIT = 'other'
+const MAIN_MEALS: MainMealType[] = ['breakfast', 'lunch', 'dinner']
+
+type MealLineItem = {
+  shoppingItemId: string
+  name: string
+  servings: number
+  servingLabel: string
+  macros: MacroTotals
+}
 
 function unitSelectValue(stored: string | undefined): string {
   if (!stored) return DEFAULT_UNIT
@@ -41,6 +56,68 @@ function unitSelectValue(stored: string | undefined): string {
 
 function formatMealShort(meal: string): string {
   return meal.charAt(0).toUpperCase() + meal.slice(1)
+}
+
+function scaleMacros(m: MacroTotals, n: number): MacroTotals {
+  return {
+    kcal: Math.round(m.kcal * n * 10) / 10,
+    protein: Math.round(m.protein * n * 10) / 10,
+    carbs: Math.round(m.carbs * n * 10) / 10,
+    fat: Math.round(m.fat * n * 10) / 10
+  }
+}
+
+/** Items allocated to a meal for the repeating daily template. */
+function itemsForMeal(plan: PortionPlan, meal: MainMealType): MealLineItem[] {
+  return plan.items
+    .filter((r) => r.matched && r.servingsPerDay > 0 && r.servingsByMeal[meal] > 0)
+    .map((r) => {
+      const servings = r.servingsByMeal[meal]
+      const unit: MacroTotals = {
+        kcal: r.perDay.kcal / r.servingsPerDay,
+        protein: r.perDay.protein / r.servingsPerDay,
+        carbs: r.perDay.carbs / r.servingsPerDay,
+        fat: r.perDay.fat / r.servingsPerDay
+      }
+      return {
+        shoppingItemId: r.shoppingItemId,
+        name: r.name,
+        servings,
+        servingLabel: r.servingLabel,
+        macros: scaleMacros(unit, servings)
+      }
+    })
+}
+
+function formatDailyMealPlanText(plan: PortionPlan): string[] {
+  const lines: string[] = []
+  lines.push('=== Daily recommendation (repeats each day) ===')
+  for (const meal of MAIN_MEALS) {
+    const goal = plan.goalsPerMeal?.[meal]
+    const total = plan.totalsPerMeal?.[meal]
+    const goalKcal = goal ? goal.kcal : '—'
+    const plannedKcal = total ? Math.round(total.kcal) : '—'
+    lines.push('')
+    lines.push(
+      `${formatMealShort(meal)} (goal ${goalKcal} kcal · planned ≈ ${plannedKcal} kcal)`
+    )
+    const items = itemsForMeal(plan, meal)
+    if (items.length === 0) {
+      lines.push('  (no items)')
+    } else {
+      for (const it of items) {
+        lines.push(
+          `  • ${it.name}: ${it.servings} × ${it.servingLabel} ≈ ${Math.round(it.macros.kcal)} kcal, ${it.macros.protein}g P · C ${it.macros.carbs}g · F ${it.macros.fat}g`
+        )
+      }
+    }
+  }
+  lines.push('')
+  lines.push(`Daily plan (repeats for ${plan.days} days)`)
+  for (let d = 1; d <= plan.days; d++) {
+    lines.push(`  Day ${d}: same as Daily recommendation above`)
+  }
+  return lines
 }
 
 function UnitSelect(props: {
@@ -79,6 +156,62 @@ function UnitSelect(props: {
   )
 }
 
+function DailyMealCard(props: {
+  meal: MainMealType
+  plan: PortionPlan
+  compact?: boolean
+}): React.JSX.Element {
+  const { meal, plan, compact } = props
+  const items = itemsForMeal(plan, meal)
+  const goal = plan.goalsPerMeal?.[meal]
+  const total = plan.totalsPerMeal?.[meal]
+  const plannedKcal = total ? Math.round(total.kcal) : 0
+  const goalKcal = goal?.kcal ?? 0
+
+  return (
+    <div className={`card meal-plan-card${compact ? ' compact' : ''}`}>
+      <div className="label">{formatMealShort(meal)}</div>
+      <div className="value small-value">
+        {plannedKcal} / {goalKcal} kcal
+      </div>
+      {total && goal && (
+        <div className="muted small">
+          P {total.protein}/{goal.protein} · C {total.carbs}/{goal.carbs} · F{' '}
+          {total.fat}/{goal.fat}
+        </div>
+      )}
+      {items.length === 0 ? (
+        <p className="muted small meal-empty">No items for this meal</p>
+      ) : (
+        <ul className="meal-item-list">
+          {items.map((it) => (
+            <li key={it.shoppingItemId}>
+              <span className="meal-item-name">{it.name}</span>
+              <span className="muted small">
+                {it.servings} × {it.servingLabel}
+              </span>
+              <span className="muted small meal-item-macros">
+                ≈ {Math.round(it.macros.kcal)} kcal · P {it.macros.protein}g · C{' '}
+                {it.macros.carbs}g · F {it.macros.fat}g
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
+function DailyMealGrid(props: { plan: PortionPlan; compact?: boolean }): React.JSX.Element {
+  return (
+    <div className={`cards meal-cards${props.compact ? ' compact' : ''}`}>
+      {MAIN_MEALS.map((meal) => (
+        <DailyMealCard key={meal} meal={meal} plan={props.plan} compact={props.compact} />
+      ))}
+    </div>
+  )
+}
+
 export default function ShoppingPage({ onToast }: Props): React.JSX.Element {
   const [items, setItems] = useState<ShoppingListItem[]>([])
   const [foods, setFoods] = useState<Food[]>([])
@@ -93,11 +226,17 @@ export default function ShoppingPage({ onToast }: Props): React.JSX.Element {
   const [plan, setPlan] = useState<PortionPlan | null>(null)
   const [loadingPlan, setLoadingPlan] = useState(false)
   const [applying, setApplying] = useState(false)
+  const [expandedDay, setExpandedDay] = useState(1)
 
   const resolvedUnit = useMemo(() => {
     if (unit === OTHER_UNIT) return customUnit.trim() || undefined
     return unit || undefined
   }, [unit, customUnit])
+
+  const dayNumbers = useMemo(() => {
+    if (!plan) return [] as number[]
+    return Array.from({ length: plan.days }, (_, i) => i + 1)
+  }, [plan])
 
   const reload = useCallback(async () => {
     const [list, foodList] = await Promise.all([
@@ -192,6 +331,7 @@ export default function ShoppingPage({ onToast }: Props): React.JSX.Element {
     try {
       const p = await window.api.recommendPortions(days)
       setPlan(p)
+      setExpandedDay(1)
       if (p.items.length === 0) onToast('Add unchecked items first')
       else onToast(`Portion plan for ${p.days} days · 3 meals/day`)
     } catch (err) {
@@ -214,6 +354,8 @@ export default function ShoppingPage({ onToast }: Props): React.JSX.Element {
       return `${r.name}: ${r.servingsPerDay} × ${r.servingLabel}/day (${mealBits}) ≈ ${r.perDay.kcal} kcal, ${r.perDay.protein}g P · ${r.servingsForPeriod} servings / ${plan.days}d`
     })
     lines.push('')
+    lines.push(...formatDailyMealPlanText(plan))
+    lines.push('')
     lines.push(`Meal split: ${splitPct}`)
     lines.push(
       `Daily totals: ${plan.totalsPerDay.kcal} kcal · P ${plan.totalsPerDay.protein}g · C ${plan.totalsPerDay.carbs}g · F ${plan.totalsPerDay.fat}g`
@@ -225,6 +367,9 @@ export default function ShoppingPage({ onToast }: Props): React.JSX.Element {
     }
     lines.push(
       `Goals: ${plan.goalsPerDay.kcal} kcal · P ${plan.goalsPerDay.protein}g · C ${plan.goalsPerDay.carbs}g · F ${plan.goalsPerDay.fat}g`
+    )
+    lines.push(
+      `Period (${plan.days}d): ${Math.round(plan.totalsPeriod.kcal)} kcal · P ${plan.totalsPeriod.protein}g · C ${plan.totalsPeriod.carbs}g · F ${plan.totalsPeriod.fat}g`
     )
     try {
       await navigator.clipboard.writeText(lines.join('\n'))
@@ -478,50 +623,106 @@ export default function ShoppingPage({ onToast }: Props): React.JSX.Element {
               </p>
             )}
 
-            <div className="table-wrap" style={{ marginTop: 12 }}>
-              <table className="data">
-                <thead>
-                  <tr>
-                    <th>Item</th>
-                    <th>Per day</th>
-                    <th>By meal</th>
-                    <th>Macros / day</th>
-                    <th>Period</th>
-                    <th>Note</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {plan.items.map((r) => (
-                    <tr key={r.shoppingItemId}>
-                      <td>{r.name}</td>
-                      <td>
-                        {r.matched
-                          ? `${r.servingsPerDay} × ${r.servingLabel}/day`
-                          : '—'}
-                      </td>
-                      <td className="muted small">
-                        {r.matched
-                          ? r.suggestedMeals
-                              .map(
-                                (m) =>
-                                  `${formatMealShort(m)} ${r.servingsByMeal[m]}×`
-                              )
-                              .join(' · ')
-                          : '—'}
-                      </td>
-                      <td>
-                        {r.matched
-                          ? `≈ ${r.perDay.kcal} kcal, ${r.perDay.protein}g P`
-                          : 'unknown'}
-                      </td>
-                      <td>
-                        {r.matched ? `${r.servingsForPeriod} servings` : '—'}
-                      </td>
-                      <td className="muted small">{r.note || ''}</td>
+            <div className="portion-section">
+              <div className="portion-section-header">
+                <h3>Daily recommendation</h3>
+                <span className="muted small">One representative day · B / L / D</span>
+              </div>
+              <p className="muted small" style={{ marginTop: 0 }}>
+                Suggested items with servings and macros for each meal, vs meal calorie/macro
+                goals.
+              </p>
+              <DailyMealGrid plan={plan} />
+            </div>
+
+            <div className="portion-section">
+              <div className="portion-section-header">
+                <h3>Day-by-day plan</h3>
+                <span className="badge-soft">
+                  Daily plan (repeats for {plan.days} days)
+                </span>
+              </div>
+              <p className="muted small" style={{ marginTop: 0 }}>
+                The engine uses a steady daily template — every day below shows the same meal
+                plan. Expand a day to review Breakfast / Lunch / Dinner.
+              </p>
+              <div className="day-plan-list">
+                {dayNumbers.map((day) => {
+                  const open = expandedDay === day
+                  return (
+                    <details
+                      key={day}
+                      className="day-plan-day"
+                      open={open}
+                      onToggle={(e) => {
+                        const el = e.currentTarget
+                        if (el.open) setExpandedDay(day)
+                        else if (expandedDay === day) setExpandedDay(0)
+                      }}
+                    >
+                      <summary>
+                        <span className="day-plan-title">Day {day}</span>
+                        <span className="muted small">
+                          {Math.round(plan.totalsPerDay.kcal)} kcal · same as daily template
+                        </span>
+                      </summary>
+                      {open && <DailyMealGrid plan={plan} compact />}
+                    </details>
+                  )
+                })}
+              </div>
+            </div>
+
+            <div className="portion-section">
+              <div className="portion-section-header">
+                <h3>Items &amp; period totals</h3>
+                <span className="muted small">Aggregate shopping view</span>
+              </div>
+              <div className="table-wrap" style={{ marginTop: 8 }}>
+                <table className="data">
+                  <thead>
+                    <tr>
+                      <th>Item</th>
+                      <th>Per day</th>
+                      <th>By meal</th>
+                      <th>Macros / day</th>
+                      <th>Period</th>
+                      <th>Note</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {plan.items.map((r) => (
+                      <tr key={r.shoppingItemId}>
+                        <td>{r.name}</td>
+                        <td>
+                          {r.matched
+                            ? `${r.servingsPerDay} × ${r.servingLabel}/day`
+                            : '—'}
+                        </td>
+                        <td className="muted small">
+                          {r.matched
+                            ? r.suggestedMeals
+                                .map(
+                                  (m) =>
+                                    `${formatMealShort(m)} ${r.servingsByMeal[m]}×`
+                                )
+                                .join(' · ')
+                            : '—'}
+                        </td>
+                        <td>
+                          {r.matched
+                            ? `≈ ${r.perDay.kcal} kcal, ${r.perDay.protein}g P`
+                            : 'unknown'}
+                        </td>
+                        <td>
+                          {r.matched ? `${r.servingsForPeriod} servings` : '—'}
+                        </td>
+                        <td className="muted small">{r.note || ''}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
 
             <div className="row-actions" style={{ marginTop: 12 }}>
