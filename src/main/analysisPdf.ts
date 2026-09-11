@@ -5,13 +5,29 @@ import {
   getNutritionAnalysis,
   getSettings,
   getWaterGoalMl,
+  listDiary,
+  listFoods,
   listExercise,
   listWater
 } from './store'
-import { MINERAL_KEYS, MINERAL_META, mineralDisplayLabel } from '../shared/minerals'
+import {
+  MINERAL_KEYS,
+  MINERAL_META,
+  hasAnyMineral,
+  mineralDisplayLabel,
+  roundMineral,
+  scaleMinerals,
+  type MineralKey
+} from '../shared/minerals'
 import { collectAvoidAliases, textMatchesAlias } from '../shared/health'
 import { formatMlExact } from '../shared/water'
-import type { HealthProfile, MealBreakdown, NutritionAnalysis } from '../shared/types'
+import type {
+  DiaryEntry,
+  Food,
+  HealthProfile,
+  MealBreakdown,
+  NutritionAnalysis
+} from '../shared/types'
 
 function esc(s: string): string {
   return s
@@ -283,12 +299,22 @@ function buildMealPieSvg(meals: MealBreakdown): string {
 
 type BarItem = { label: string; pct: number; actual: string; goal: string }
 
+/** Clip id counter so multiple charts on one page stay unique. */
+let hBarClipSeq = 0
+
+const OVERFLOW_DEEP: Record<string, string> = {
+  '#6f9f7a': '#4d7a58',
+  '#8fbc8f': '#5f8f6a',
+  '#c9a46a': '#a67d3a',
+  '#c47a6a': '#a35548'
+}
+
 /**
  * Horizontal bars — same per-row logic as Water:
  * - pct <= 100: track = 100% goal width; colored fill = actual %; light remainder = rest.
  *   No 100% goal label/line on under-goal rows.
- * - pct > 100: fill covers the full track, then extends past it for the overrun only.
- *   No chart-wide 100% indicator (vs-goals / minerals never mark under-goal rows).
+ * - pct > 100: continuous bar via clipPath — 0–100% base fill, overflow segment deeper
+ *   same-hue; no separate stub gap. No chart-wide 100% indicator.
  */
 function buildHBarChartSvg(title: string, items: BarItem[], heightPer = 28): string {
   if (items.length === 0) return ''
@@ -302,24 +328,39 @@ function buildHBarChartSvg(title: string, items: BarItem[], heightPer = 28): str
   const trackFill = '#eef3ea'
 
   const rows = items
-    .map((it, i) => {
-      const y = top + i * heightPer
+    .map((it, idx) => {
+      const y = top + idx * heightPer
       const pct = Math.max(0, it.pct)
       const fill =
         pct >= 90 && pct <= 110 ? '#6f9f7a' : pct < 70 ? '#c9a46a' : pct > 110 ? '#c47a6a' : '#8fbc8f'
+      const deep = OVERFLOW_DEEP[fill] ?? fill
       const within = Math.min(pct, 100)
       const fillW = (within / 100) * trackW
       const over = Math.max(0, pct - 100)
       const overW = over > 0 ? Math.min(overflowPad, (over / 100) * trackW) : 0
-      const overRect =
-        overW > 0
-          ? `<rect x="${left + trackW}" y="${y + 2}" width="${overW}" height="16" fill="${fill}" opacity="0.85"/>`
-          : ''
-      return `<text x="8" y="${y + 14}" fill="#3d5a45" font-size="10" font-family="Segoe UI, sans-serif">${esc(it.label)}</text>
-    <rect x="${left}" y="${y + 2}" width="${trackW}" height="16" rx="4" fill="${trackFill}"/>
-    <rect x="${left}" y="${y + 2}" width="${pct > 0 ? Math.max(2, fillW) : 0}" height="16" rx="4" fill="${fill}"/>
-    ${overRect}
-    <text x="${left + trackW + overflowPad + 8}" y="${y + 14}" fill="#2c3228" font-size="10" font-family="Segoe UI, sans-serif">${Math.round(pct)}%</text>`
+      const by = y + 2
+      const barH = 16
+      const label = `<text x="8" y="${y + 14}" fill="#3d5a45" font-size="10" font-family="Segoe UI, sans-serif">${esc(it.label)}</text>`
+      const pctText = `<text x="${left + trackW + overflowPad + 8}" y="${y + 14}" fill="#2c3228" font-size="10" font-family="Segoe UI, sans-serif">${Math.round(pct)}%</text>`
+      const track = `<rect x="${left}" y="${by}" width="${trackW}" height="${barH}" rx="4" fill="${trackFill}"/>`
+
+      if (overW > 0) {
+        const clipId = `hbar-clip-${hBarClipSeq++}`
+        const totalW = trackW + overW
+        return `${label}
+    ${track}
+    <defs><clipPath id="${clipId}"><rect x="${left}" y="${by}" width="${totalW}" height="${barH}" rx="4"/></clipPath></defs>
+    <g clip-path="url(#${clipId})">
+      <rect x="${left}" y="${by}" width="${trackW}" height="${barH}" fill="${fill}"/>
+      <rect x="${left + trackW}" y="${by}" width="${overW}" height="${barH}" fill="${deep}"/>
+    </g>
+    ${pctText}`
+      }
+
+      return `${label}
+    ${track}
+    <rect x="${left}" y="${by}" width="${pct > 0 ? Math.max(2, fillW) : 0}" height="${barH}" rx="4" fill="${fill}"/>
+    ${pctText}`
     })
     .join('\n')
 
@@ -501,6 +542,63 @@ function buildRecommendations(
   return out
 }
 
+
+function diaryEntryMinerals(e: DiaryEntry, foodsById: Map<string, Food>) {
+  if (hasAnyMineral(e.minerals)) return e.minerals
+  if (e.foodId) {
+    const food = foodsById.get(e.foodId)
+    if (food?.minerals) return scaleMinerals(food.minerals, e.servingQty || 1)
+  }
+  return undefined
+}
+
+/** Foods contributing the most to each mineral that exceeds 100% of goal. */
+function buildMineralOverGoalHtml(a: NutritionAnalysis): string {
+  const overKeys: MineralKey[] = MINERAL_KEYS.filter((key) => {
+    const vs = a.vsMineralGoals[key]
+    return !!vs && vs.pctOfGoal > 100
+  })
+  if (overKeys.length === 0) return ''
+
+  const foodsById = new Map(listFoods().map((f) => [f.id, f] as const))
+  const diary = listDiary().filter((e) => e.date >= a.rangeStart && e.date <= a.rangeEnd)
+
+  const blocks: string[] = []
+  for (const key of overKeys) {
+    const vs = a.vsMineralGoals[key]
+    if (!vs) continue
+    const meta = MINERAL_META[key]
+    const byName = new Map<string, number>()
+    for (const e of diary) {
+      const m = diaryEntryMinerals(e, foodsById)
+      const raw = m?.[key]
+      if (raw === undefined || raw === null || !Number.isFinite(raw) || !(raw > 0)) continue
+      byName.set(e.name, roundMineral((byName.get(e.name) ?? 0) + raw))
+    }
+    const contributors = [...byName.entries()]
+      .filter(([, amt]) => amt > 0)
+      .sort((x, y) => y[1] - x[1] || x[0].localeCompare(y[0]))
+      .slice(0, 10)
+    if (contributors.length === 0) continue
+    const items = contributors
+      .map(
+        ([name, amt]) =>
+          `<li><span class="food">${esc(name)}</span> – ${fmt(amt, meta.unit)}</li>`
+      )
+      .join('')
+    blocks.push(`<div class="mineral-over-item">
+      <div class="mineral-over-head">${esc(mineralDisplayLabel(key))} · ${Math.round(vs.pctOfGoal)}% of goal</div>
+      <ul>${items}</ul>
+    </div>`)
+  }
+
+  if (blocks.length === 0) return ''
+  return `<div class="mineral-over">
+  <div class="mineral-over-title">Over goal — eat less of</div>
+  ${blocks.join('\n')}
+</div>`
+}
+
 function buildAnalysisHtml(
   a: NutritionAnalysis,
   displayName: string,
@@ -599,6 +697,7 @@ function buildAnalysisHtml(
   }).filter((x): x is BarItem => !!x)
 
   const mineralBars = buildHBarChartSvg('Minerals (% of goal)', mineralBarItems, 24)
+  const mineralOverHtml = buildMineralOverGoalHtml(a)
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -645,6 +744,29 @@ function buildAnalysisHtml(
   svg { display: block; max-width: 100%; }
   .chart-footnote { margin: 4px 0 0; max-width: 320px; }
   .disclaimer { font-size: 8.5pt; color: #7a8674; margin-top: 8px; }
+  .mineral-over {
+    margin: 10px 0 14px;
+    padding: 10px 12px;
+    background: #fff8f4;
+    border: 1px solid #e8d0c8;
+    border-radius: 8px;
+    page-break-inside: avoid;
+  }
+  .mineral-over-title {
+    font-size: 10.5pt;
+    color: #a35548;
+    font-weight: 650;
+    margin-bottom: 6px;
+  }
+  .mineral-over-item { margin: 6px 0 2px; }
+  .mineral-over-head {
+    font-size: 10pt;
+    color: #3d5a45;
+    font-weight: 600;
+  }
+  .mineral-over ul { margin: 4px 0 6px 16px; padding: 0; }
+  .mineral-over li { margin-bottom: 2px; font-size: 9.5pt; }
+  .mineral-over .food { color: #2c3228; }
 </style>
 </head>
 <body>
@@ -694,6 +816,7 @@ function buildAnalysisHtml(
   <h2>Minerals</h2>
   <p class="sub">Coverage ${a.mineralCoverage.entriesWithData}/${a.mineralCoverage.entryCount} (${Math.round(a.mineralCoverage.pct)}%)</p>
   ${mineralBars}
+  ${mineralOverHtml}
   <details class="compact-backup">
     <summary>Mineral table backup</summary>
     <table>
