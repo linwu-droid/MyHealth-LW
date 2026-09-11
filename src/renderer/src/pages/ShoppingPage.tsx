@@ -107,11 +107,11 @@ function formatDailyMealPlanText(plan: PortionPlan): string[] {
   for (const meal of MAIN_MEALS) {
     const goal = plan.goalsPerMeal?.[meal]
     const total = plan.totalsPerMeal?.[meal]
-    const goalKcal = goal ? goal.kcal : 'â€”'
-    const plannedKcal = total ? Math.round(total.kcal) : 'â€”'
+    const goalKcal = goal ? goal.kcal : '—'
+    const plannedKcal = total ? Math.round(total.kcal) : '—'
     lines.push('')
     lines.push(
-      `${formatMealShort(meal)} (goal ${goalKcal} kcal Â· planned â‰ˆ ${plannedKcal} kcal)`
+      `${formatMealShort(meal)} (goal ${goalKcal} kcal · planned ≈ ${plannedKcal} kcal)`
     )
     const items = itemsForMeal(plan, meal)
     if (items.length === 0) {
@@ -119,7 +119,7 @@ function formatDailyMealPlanText(plan: PortionPlan): string[] {
     } else {
       for (const it of items) {
         lines.push(
-          `  â€¢ ${it.name}: ${it.servings} Ã— ${it.servingLabel} â‰ˆ ${Math.round(it.macros.kcal)} kcal, ${it.macros.protein}g Protein Â· Carbohydrate ${it.macros.carbs}g Â· Fat ${it.macros.fat}g`
+          `  • ${it.name}: ${it.servings} × ${it.servingLabel} ≈ ${Math.round(it.macros.kcal)} kcal, ${it.macros.protein}g Protein · Carbohydrate ${it.macros.carbs}g · Fat ${it.macros.fat}g`
         )
       }
     }
@@ -174,7 +174,7 @@ function DailyMealCard(props: {
       </div>
       {total && goal && (
         <div className="muted small">
-          Protein {total.protein}/{goal.protein} Â· Carbohydrate {total.carbs}/{goal.carbs} Â· Fat{' '}
+          Protein {total.protein}/{goal.protein} · Carbohydrate {total.carbs}/{goal.carbs} · Fat{' '}
           {total.fat}/{goal.fat}
         </div>
       )}
@@ -186,11 +186,11 @@ function DailyMealCard(props: {
             <li key={it.shoppingItemId}>
               <span className="meal-item-name">{it.name}</span>
               <span className="muted small">
-                {it.servings} Ã— {it.servingLabel}
+                {it.servings} × {it.servingLabel}
               </span>
               <span className="muted small meal-item-macros">
-                â‰ˆ {Math.round(it.macros.kcal)} kcal Â· Protein {it.macros.protein}g Â· Carbohydrate{' '}
-                {it.macros.carbs}g Â· Fat {it.macros.fat}g
+                ≈ {Math.round(it.macros.kcal)} kcal · Protein {it.macros.protein}g · Carbohydrate{' '}
+                {it.macros.carbs}g · Fat {it.macros.fat}g
               </span>
             </li>
           ))}
@@ -348,7 +348,7 @@ export default function ShoppingPage({ onToast }: Props): React.JSX.Element {
       setPlan(p)
       setExpandedDay(1)
       if (p.items.length === 0) onToast('Add unchecked items first')
-      else onToast(`Portion plan for ${p.days} days Â· 3 meals/day`)
+      else onToast(`Portion plan for ${p.days} days · 3 meals/day`)
     } catch (err) {
       onToast(err instanceof Error ? err.message : 'Could not build recommendations')
     } finally {
@@ -364,27 +364,27 @@ export default function ShoppingPage({ onToast }: Props): React.JSX.Element {
     const lines = plan.items.map((r) => {
       if (!r.matched) return `${r.name}: unknown nutrition`
       const mealBits = r.suggestedMeals
-        .map((m) => `${formatMealShort(m)} ${r.servingsByMeal[m]}Ã—`)
+        .map((m) => `${formatMealShort(m)} ${r.servingsByMeal[m]}×`)
         .join(', ')
-      return `${r.name}: ${r.servingsPerDay} Ã— ${r.servingLabel}/day (${mealBits}) â‰ˆ ${r.perDay.kcal} kcal, ${r.perDay.protein}g P Â· ${r.servingsForPeriod} servings / ${plan.days}d`
+      return `${r.name}: ${r.servingsPerDay} × ${r.servingLabel}/day (${mealBits}) ≈ ${r.perDay.kcal} kcal, ${r.perDay.protein}g P · ${r.servingsForPeriod} servings / ${plan.days}d`
     })
     lines.push('')
     lines.push(...formatDailyMealPlanText(plan))
     lines.push('')
     lines.push(`Meal split: ${splitPct}`)
     lines.push(
-      `Daily totals: ${plan.totalsPerDay.kcal} kcal Â· P ${plan.totalsPerDay.protein}g Â· C ${plan.totalsPerDay.carbs}g Â· F ${plan.totalsPerDay.fat}g`
+      `Daily totals: ${plan.totalsPerDay.kcal} kcal · P ${plan.totalsPerDay.protein}g · C ${plan.totalsPerDay.carbs}g · F ${plan.totalsPerDay.fat}g`
     )
     if (plan.totalsPerMeal) {
       lines.push(
-        `  Breakfast: ${Math.round(plan.totalsPerMeal.breakfast.kcal)} kcal Â· Lunch: ${Math.round(plan.totalsPerMeal.lunch.kcal)} kcal Â· Dinner: ${Math.round(plan.totalsPerMeal.dinner.kcal)} kcal`
+        `  Breakfast: ${Math.round(plan.totalsPerMeal.breakfast.kcal)} kcal · Lunch: ${Math.round(plan.totalsPerMeal.lunch.kcal)} kcal · Dinner: ${Math.round(plan.totalsPerMeal.dinner.kcal)} kcal`
       )
     }
     lines.push(
-      `Goals: ${plan.goalsPerDay.kcal} kcal Â· P ${plan.goalsPerDay.protein}g Â· C ${plan.goalsPerDay.carbs}g Â· F ${plan.goalsPerDay.fat}g`
+      `Goals: ${plan.goalsPerDay.kcal} kcal · P ${plan.goalsPerDay.protein}g · C ${plan.goalsPerDay.carbs}g · F ${plan.goalsPerDay.fat}g`
     )
     lines.push(
-      `Period (${plan.days}d): ${Math.round(plan.totalsPeriod.kcal)} kcal Â· P ${plan.totalsPeriod.protein}g Â· C ${plan.totalsPeriod.carbs}g Â· F ${plan.totalsPeriod.fat}g`
+      `Period (${plan.days}d): ${Math.round(plan.totalsPeriod.kcal)} kcal · P ${plan.totalsPeriod.protein}g · C ${plan.totalsPeriod.carbs}g · F ${plan.totalsPeriod.fat}g`
     )
     try {
       await navigator.clipboard.writeText(lines.join('\n'))
@@ -565,12 +565,12 @@ export default function ShoppingPage({ onToast }: Props): React.JSX.Element {
             disabled={loadingPlan}
             onClick={() => void recommend()}
           >
-            {loadingPlan ? 'Calculatingâ€¦' : 'Recommend portions'}
+            {loadingPlan ? 'Calculating…' : 'Recommend portions'}
           </button>
         </div>
         <p className="muted small" style={{ marginTop: 0 }}>
           Uses your calorie/macro goals from Settings, planned for <strong>3 meals/day</strong>{' '}
-          (breakfast ~30% Â· lunch ~35% Â· dinner ~35%). Matches list items to Foods (or a quick
+          (breakfast ~30% · lunch ~35% · dinner ~35%). Matches list items to Foods (or a quick
           Open Food Facts lookup). Simple split biased toward higher-protein foods.
         </p>
 
@@ -621,7 +621,7 @@ export default function ShoppingPage({ onToast }: Props): React.JSX.Element {
                   {Math.round(plan.totalsPerDay.kcal)} kcal
                 </div>
                 <div className="muted small">
-                  Protein {plan.totalsPerDay.protein} Â· Carbohydrate {plan.totalsPerDay.carbs} Â· Fat{' '}
+                  Protein {plan.totalsPerDay.protein} · Carbohydrate {plan.totalsPerDay.carbs} · Fat{' '}
                   {plan.totalsPerDay.fat}
                 </div>
               </div>
@@ -629,7 +629,7 @@ export default function ShoppingPage({ onToast }: Props): React.JSX.Element {
                 <div className="label">Daily goals</div>
                 <div className="value small-value">{plan.goalsPerDay.kcal} kcal</div>
                 <div className="muted small">
-                  Protein {plan.goalsPerDay.protein} Â· Carbohydrate {plan.goalsPerDay.carbs} Â· Fat{' '}
+                  Protein {plan.goalsPerDay.protein} · Carbohydrate {plan.goalsPerDay.carbs} · Fat{' '}
                   {plan.goalsPerDay.fat}
                 </div>
               </div>
@@ -648,7 +648,7 @@ export default function ShoppingPage({ onToast }: Props): React.JSX.Element {
                 <div className="card">
                   <div className="label">3-meal goals</div>
                   <div className="muted small" style={{ marginTop: 4 }}>
-                    B {plan.goalsPerMeal.breakfast.kcal} Â· L {plan.goalsPerMeal.lunch.kcal} Â· D{' '}
+                    B {plan.goalsPerMeal.breakfast.kcal} · L {plan.goalsPerMeal.lunch.kcal} · D{' '}
                     {plan.goalsPerMeal.dinner.kcal} kcal
                   </div>
                   <div className="muted small">
@@ -664,16 +664,16 @@ export default function ShoppingPage({ onToast }: Props): React.JSX.Element {
             {plan.totalsPerMeal && (
               <p className="muted small" style={{ marginTop: 10 }}>
                 Planned per meal:{' '}
-                <strong>Breakfast</strong> â‰ˆ {Math.round(plan.totalsPerMeal.breakfast.kcal)} kcal Â·{' '}
-                <strong>Lunch</strong> â‰ˆ {Math.round(plan.totalsPerMeal.lunch.kcal)} kcal Â·{' '}
-                <strong>Dinner</strong> â‰ˆ {Math.round(plan.totalsPerMeal.dinner.kcal)} kcal
+                <strong>Breakfast</strong> ≈ {Math.round(plan.totalsPerMeal.breakfast.kcal)} kcal ·{' '}
+                <strong>Lunch</strong> ≈ {Math.round(plan.totalsPerMeal.lunch.kcal)} kcal ·{' '}
+                <strong>Dinner</strong> ≈ {Math.round(plan.totalsPerMeal.dinner.kcal)} kcal
               </p>
             )}
 
             <div className="portion-section">
               <div className="portion-section-header">
                 <h3>Daily recommendation</h3>
-                <span className="muted small">One representative day Â· B / L / D</span>
+                <span className="muted small">One representative day · B / L / D</span>
               </div>
               <p className="muted small" style={{ marginTop: 0 }}>
                 Suggested items with servings and macros for each meal, vs meal calorie/macro
@@ -690,7 +690,7 @@ export default function ShoppingPage({ onToast }: Props): React.JSX.Element {
                 </span>
               </div>
               <p className="muted small" style={{ marginTop: 0 }}>
-                The engine uses a steady daily template â€” every day below shows the same meal
+                The engine uses a steady daily template — every day below shows the same meal
                 plan. Expand a day to review Breakfast / Lunch / Dinner.
               </p>
               <div className="day-plan-list">
@@ -710,7 +710,7 @@ export default function ShoppingPage({ onToast }: Props): React.JSX.Element {
                       <summary>
                         <span className="day-plan-title">Day {day}</span>
                         <span className="muted small">
-                          {Math.round(plan.totalsPerDay.kcal)} kcal Â· same as daily template
+                          {Math.round(plan.totalsPerDay.kcal)} kcal · same as daily template
                         </span>
                       </summary>
                       {open && <DailyMealGrid plan={plan} compact />}
@@ -743,26 +743,26 @@ export default function ShoppingPage({ onToast }: Props): React.JSX.Element {
                         <td>{r.name}</td>
                         <td>
                           {r.matched
-                            ? `${r.servingsPerDay} Ã— ${r.servingLabel}/day`
-                            : 'â€”'}
+                            ? `${r.servingsPerDay} × ${r.servingLabel}/day`
+                            : '—'}
                         </td>
                         <td className="muted small">
                           {r.matched
                             ? r.suggestedMeals
                                 .map(
                                   (m) =>
-                                    `${formatMealShort(m)} ${r.servingsByMeal[m]}Ã—`
+                                    `${formatMealShort(m)} ${r.servingsByMeal[m]}×`
                                 )
-                                .join(' Â· ')
-                            : 'â€”'}
+                                .join(' · ')
+                            : '—'}
                         </td>
                         <td>
                           {r.matched
-                            ? `â‰ˆ ${r.perDay.kcal} kcal, ${r.perDay.protein}g P`
+                            ? `≈ ${r.perDay.kcal} kcal, ${r.perDay.protein}g P`
                             : 'unknown'}
                         </td>
                         <td>
-                          {r.matched ? `${r.servingsForPeriod} servings` : 'â€”'}
+                          {r.matched ? `${r.servingsForPeriod} servings` : '—'}
                         </td>
                         <td className="muted small">{r.note || ''}</td>
                       </tr>
@@ -783,7 +783,7 @@ export default function ShoppingPage({ onToast }: Props): React.JSX.Element {
                 onClick={() => void applyToDiary()}
               >
                 {applying
-                  ? 'Addingâ€¦'
+                  ? 'Adding…'
                   : "Add today's portions to Diary (3 meals)"}
               </button>
             </div>
