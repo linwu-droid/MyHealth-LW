@@ -1,0 +1,36 @@
+icon: build/icon.ico
+appId: com.myhealthlw.app
+productName: MyHealth L.W
+copyright: Copyright (c) RevoCon (TM) - L.W.
+directories:
+  buildResources: build
+  output: release
+files:
+  - '!src/*'
+  - '!scripts{,/**/*}'
+  - '!.agent-work{,/**/*}'
+  - '!*.cmd'
+asarUnpack:
+  - resources/**
+win:
+  icon: build/icon.ico
+  executableName: MyHealthLW
+nsis:
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico
+  installerHeaderIcon: build/icon.ico
+  artifactName: MyHealthLW-${version}-setup.${ext}
+  shortcutName: ${productName}
+  uninstallDisplayName: ${productName}
+  createDesktopShortcut: always
+  deleteAppDataOnUninstall: false
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+mac:
+  notarize: false
+linux:
+  target:
+    - AppImage
+  maintainer: RevoCon - L.W.
+  category: Utility
+npmRebuild: false
