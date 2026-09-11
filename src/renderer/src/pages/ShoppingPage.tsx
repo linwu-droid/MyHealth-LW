@@ -264,7 +264,7 @@ export default function ShoppingPage({ onToast }: Props): React.JSX.Element {
   }, [])
 
   useEffect(() => {
-    void reload().catch(() => onToast('Failed to load shopping list'))
+    void reload().catch(() => onToast('Failed to load pantry stock'))
   }, [reload, onToast])
 
   async function addOne(): Promise<void> {
@@ -287,7 +287,7 @@ export default function ShoppingPage({ onToast }: Props): React.JSX.Element {
       setQty('')
       setUnit(DEFAULT_UNIT)
       setFoodId('')
-      onToast('Added to shopping list')
+      onToast('Added to pantry stock')
       await reload()
     } catch (err) {
       onToast(err instanceof Error ? err.message : 'Failed to add item')
@@ -348,9 +348,9 @@ export default function ShoppingPage({ onToast }: Props): React.JSX.Element {
       setPlan(p)
       setExpandedDay(1)
       if (p.items.length === 0) onToast('Add unchecked items first')
-      else onToast(`Portion plan for ${p.days} days · 3 meals/day`)
+      else onToast(`Meal plan for ${p.days} days · 3 meals/day`)
     } catch (err) {
-      onToast(err instanceof Error ? err.message : 'Could not build recommendations')
+      onToast(err instanceof Error ? err.message : 'Could not build meal plan')
     } finally {
       setLoadingPlan(false)
     }
@@ -412,7 +412,7 @@ export default function ShoppingPage({ onToast }: Props): React.JSX.Element {
   return (
     <div>
       <div className="page-header">
-        <h2>Shopping</h2>
+        <h2>Pantry Stock</h2>
         <div className="row-actions">
           <button type="button" className="btn" onClick={() => setShowPaste((v) => !v)}>
             {showPaste ? 'Hide paste' : 'Paste list'}
@@ -509,7 +509,7 @@ export default function ShoppingPage({ onToast }: Props): React.JSX.Element {
         </div>
         {items.length === 0 ? (
           <div className="empty">
-            <h3>Shopping list is empty</h3>
+            <h3>Pantry stock is empty</h3>
             <p>Add items above or paste a multi-line list.</p>
           </div>
         ) : (
@@ -545,7 +545,7 @@ export default function ShoppingPage({ onToast }: Props): React.JSX.Element {
 
       <div className="panel">
         <div className="panel-header">
-          <h2>Portion recommendations</h2>
+          <h2>Plan My Meals</h2>
           <div className="spacer" />
           <label className="muted small" style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
             Days
@@ -565,7 +565,7 @@ export default function ShoppingPage({ onToast }: Props): React.JSX.Element {
             disabled={loadingPlan}
             onClick={() => void recommend()}
           >
-            {loadingPlan ? 'Calculating…' : 'Recommend portions'}
+            {loadingPlan ? 'Calculating…' : 'Plan My Meals'}
           </button>
         </div>
         <p className="muted small" style={{ marginTop: 0 }}>
@@ -591,7 +591,7 @@ export default function ShoppingPage({ onToast }: Props): React.JSX.Element {
               </span>
             </div>
             <p className="muted small" style={{ marginTop: 0 }}>
-              Scores your shopping list{plan ? ' and portion plan' : ''} against the selected plate mode.
+              Scores your pantry stock{plan ? ' and meal plan' : ''} against the selected plate mode.
               Tips appear when a group is missing or far under its target share.
             </p>
             {plateBalanceGaps.length === 0 ? (
@@ -723,7 +723,7 @@ export default function ShoppingPage({ onToast }: Props): React.JSX.Element {
             <div className="portion-section">
               <div className="portion-section-header">
                 <h3>Items &amp; period totals</h3>
-                <span className="muted small">Aggregate shopping view</span>
+                <span className="muted small">Aggregate pantry view</span>
               </div>
               <div className="table-wrap" style={{ marginTop: 8 }}>
                 <table className="data">

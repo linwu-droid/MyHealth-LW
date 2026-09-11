@@ -86,7 +86,7 @@ NSIS upgrades replace app files and **do not** wipe AppData (`deleteAppDataOnUni
 - Diary by meal with food search / quick custom
 - Personal food database (seeded on first run)
 - **Online nutrition import** (Open Food Facts) — search live or pull a common-foods pack
-- **Shopping list** with portion recommendations vs your macro goals
+- **Pantry Stock** with Plan My Meals vs your macro goals
 - Weight log (kg stored; lb display toggle)
 - Exercise log (burns subtract from remaining)
 - Health profile, Settings, export/import, reset, Check for updates
@@ -102,12 +102,12 @@ Nutrition prefers per-serving values when present; otherwise per 100 g (serving 
 
 Data courtesy of Open Food Facts contributors — free collaborative database under ODbL. This app does not dump the full OFF corpus; only search results and the curated common pack are imported on demand.
 
-## Shopping list & portion recommendations
+## Pantry Stock & Plan My Meals
 
-Sidebar **Shopping**:
+Sidebar **Pantry Stock**:
 
 - Add items (name, optional qty/unit) and optionally link to a Food from your database
 - Paste multi-add (one item per line), check off, delete, clear checked
-- **Recommend portions** — pick days (default 7). Matches list items to Foods (fuzzy / foodId); unmatched items get a best-effort Open Food Facts lookup. A simple kcal split (biased toward higher protein density) suggests servings/day so macros approach your Settings goals
-- Panel shows item → recommended portion, daily/period totals vs goals
-- **Copy portions** or **Add today's recommended portions to Diary** (matched + linked Foods only)
+- **Plan My Meals** — pick days (default 7). Matches pantry items to Foods (fuzzy / foodId); unmatched items get a best-effort Open Food Facts lookup. A simple kcal split (biased toward higher protein density) suggests servings/day so macros approach your Settings goals
+- Panel shows item → planned portion, daily/period totals vs goals
+- **Copy portions** or **Add today's portions to Diary** (matched + linked Foods only)

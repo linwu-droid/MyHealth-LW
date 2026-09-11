@@ -438,7 +438,7 @@ export function analyzeNutrition(
   const openShopping = shoppingList.filter((i) => !i.checked)
   if (openShopping.length > 0) {
     notes.push(
-      `Shopping list has ${openShopping.length} open item(s), but portion plans are not persisted — this analysis is diary-based only.`
+      `Pantry stock has ${openShopping.length} open item(s), but meal plans are not persisted — this analysis is diary-based only.`
     )
   }
   if (inRange.length > 0) {

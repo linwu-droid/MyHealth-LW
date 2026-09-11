@@ -27,7 +27,7 @@ const NAV: { id: AppView; label: string }[] = [
   { id: 'home', label: 'Home' },
   { id: 'diary', label: 'Diary' },
   { id: 'foods', label: 'Foods' },
-  { id: 'shopping', label: 'Shopping' },
+  { id: 'shopping', label: 'Pantry Stock' },
   { id: 'analysis', label: 'Analysis' },
   { id: 'weight', label: 'Weight' },
   { id: 'exercise', label: 'Exercise' },
