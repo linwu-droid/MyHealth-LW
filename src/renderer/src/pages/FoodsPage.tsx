@@ -155,7 +155,8 @@ export default function FoodsPage({ onToast }: Props): React.JSX.Element {
       kcal: c.kcal,
       protein: c.protein,
       carbs: c.carbs,
-      fat: c.fat
+      fat: c.fat,
+      minerals: c.minerals
     }
   }
 

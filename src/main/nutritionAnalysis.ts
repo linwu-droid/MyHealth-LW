@@ -1,16 +1,29 @@
 import type {
   AppSettings,
   DiaryEntry,
+  Food,
   MacroBalance,
   MacroTotals,
   MacroVsGoal,
   MealBreakdown,
   MealType,
+  MineralKey,
+  MineralMap,
   NutritionAnalysis,
   NutritionInsight,
   ShoppingListItem,
   TopFoodContribution
 } from '../shared/types'
+import {
+  MINERAL_KEYS,
+  MINERAL_META,
+  addMinerals,
+  defaultMineralGoals,
+  hasAnyMineral,
+  roundMineral,
+  scaleMineralMap,
+  scaleMinerals
+} from '../shared/minerals'
 
 function zero(): MacroTotals {
   return { kcal: 0, protein: 0, carbs: 0, fat: 0 }
@@ -45,6 +58,42 @@ function sumEntries(entries: DiaryEntry[]): MacroTotals {
   )
 }
 
+function entryMinerals(e: DiaryEntry, foodsById: Map<string, Food>): MineralMap | undefined {
+  if (hasAnyMineral(e.minerals)) return e.minerals
+  if (e.foodId) {
+    const food = foodsById.get(e.foodId)
+    if (food?.minerals) return scaleMinerals(food.minerals, e.servingQty || 1)
+  }
+  return undefined
+}
+
+function sumMinerals(entries: DiaryEntry[], foodsById: Map<string, Food>): {
+  totals: MineralMap
+  withData: number
+} {
+  let totals: MineralMap = {}
+  let withData = 0
+  for (const e of entries) {
+    const m = entryMinerals(e, foodsById)
+    if (hasAnyMineral(m)) {
+      withData++
+      totals = addMinerals(totals, m)
+    }
+  }
+  return { totals, withData }
+}
+
+function resolveMineralGoals(settings: AppSettings): Record<MineralKey, number> {
+  const defaults = defaultMineralGoals()
+  const patch = settings.mineralGoals ?? {}
+  const out = { ...defaults }
+  for (const key of MINERAL_KEYS) {
+    const v = patch[key]
+    if (v !== undefined && Number.isFinite(v) && v >= 0) out[key] = v
+  }
+  return out
+}
+
 function parseIso(date: string): Date {
   const [y, m, d] = date.slice(0, 10).split('-').map(Number)
   return new Date(y, m - 1, d)
@@ -67,10 +116,10 @@ function vsGoal(actual: number, goal: number): MacroVsGoal {
   const g = goal > 0 ? goal : 0
   const pct = g > 0 ? round1((actual / g) * 100) : 0
   return {
-    actual: round1(actual),
+    actual: roundMineral(actual),
     goal: g,
     pctOfGoal: pct,
-    remaining: round1(g - actual)
+    remaining: roundMineral(g - actual)
   }
 }
 
@@ -124,13 +173,61 @@ function topFoods(entries: DiaryEntry[], limit = 8): TopFoodContribution[] {
     .slice(0, limit)
 }
 
+function buildMineralInsights(
+  compare: MineralMap,
+  goals: Record<MineralKey, number>,
+  coveragePct: number,
+  entryCount: number
+): NutritionInsight[] {
+  const tips: NutritionInsight[] = []
+  if (entryCount === 0) return tips
+
+  if (coveragePct < 50 && entryCount > 0) {
+    tips.push({
+      id: 'mineral-coverage-low',
+      severity: 'info',
+      message: `Only ${round0(coveragePct)}% of diary entries have mineral data. Import foods with minerals or re-log from the food database for fuller analysis.`
+    })
+  }
+
+  const sodium = compare.sodium ?? 0
+  const sodiumGoal = goals.sodium
+  if (sodiumGoal > 0 && sodium > sodiumGoal * 1.1) {
+    tips.push({
+      id: 'sodium-high',
+      severity: 'warn',
+      message: `Sodium is high (${round0(sodium)} / ${sodiumGoal} mg). Cut back on salty snacks, processed foods, and added salt.`
+    })
+  }
+
+  for (const key of ['iron', 'calcium', 'potassium', 'magnesium', 'zinc', 'iodine'] as MineralKey[]) {
+    const actual = compare[key] ?? 0
+    const goal = goals[key]
+    if (goal <= 0) continue
+    const pct = (actual / goal) * 100
+    if (pct < 70 && coveragePct >= 30) {
+      const meta = MINERAL_META[key]
+      tips.push({
+        id: `${key}-low`,
+        severity: 'warn',
+        message: `${meta.label} is low (${round0(pct)}% of goal: ${roundMineral(actual)} / ${goal} ${meta.unit}). Consider foods rich in ${meta.label.toLowerCase()}.`
+      })
+    }
+  }
+
+  return tips
+}
+
 function buildInsights(
   days: number,
   compare: MacroTotals,
   settings: AppSettings,
   meals: MealBreakdown | null,
   daysWithEntries: number,
-  entryCount: number
+  entryCount: number,
+  mineralCompare: MineralMap,
+  mineralGoals: Record<MineralKey, number>,
+  coveragePct: number
 ): NutritionInsight[] {
   const tips: NutritionInsight[] = []
   const kcalGoal = settings.calorieGoal
@@ -250,17 +347,19 @@ function buildInsights(
         tips.push({
           id: 'snacks-heavy',
           severity: 'info',
-          message: `Snacks are ${round0((meals.snacks.kcal / dayKcal) * 100)}% of today's calories. Fine if planned â€” otherwise fold some into main meals.`
+          message: `Snacks are ${round0((meals.snacks.kcal / dayKcal) * 100)}% of today's calories. Fine if planned — otherwise fold some into main meals.`
         })
       }
     }
   }
 
+  tips.push(...buildMineralInsights(mineralCompare, mineralGoals, coveragePct, entryCount))
+
   if (tips.length === 0) {
     tips.push({
       id: 'balanced',
       severity: 'good',
-      message: 'No major flags â€” macros look reasonably balanced versus your goals.'
+      message: 'No major flags — macros look reasonably balanced versus your goals.'
     })
   }
 
@@ -275,18 +374,22 @@ export type AnalyzeNutritionOpts = {
 /**
  * Diary-based nutrition analysis for a selected end date and window (1 / 7 / 14 / 30).
  * Shopping portion plans are not persisted, so analysis does not use them.
+ * Minerals come from diary entry snapshots, or foodId × qty when the entry lacks minerals.
  */
 export function analyzeNutrition(
   diaryEntries: DiaryEntry[],
   settings: AppSettings,
   shoppingList: ShoppingListItem[],
-  opts: AnalyzeNutritionOpts
+  opts: AnalyzeNutritionOpts,
+  foods: Food[] = []
 ): NutritionAnalysis {
   const end = (opts.date || '').slice(0, 10)
   const daysRaw = opts.days ?? 1
   const days = [1, 7, 14, 30].includes(daysRaw) ? daysRaw : 1
   const rangeEnd = end
   const rangeStart = days === 1 ? end : shiftDays(end, -(days - 1))
+
+  const foodsById = new Map(foods.map((f) => [f.id, f]))
 
   const inRange = diaryEntries.filter((e) => {
     const d = e.date.slice(0, 10)
@@ -305,23 +408,42 @@ export function analyzeNutrition(
     fat: vsGoal(compare.fat, settings.fatGoalG)
   }
 
+  const { totals: mineralTotalsRaw, withData } = sumMinerals(inRange, foodsById)
+  const mineralAveragePerDay = scaleMineralMap(mineralTotalsRaw, 1 / days)
+  const mineralCompare = days === 1 ? mineralTotalsRaw : mineralAveragePerDay
+  const mineralGoals = resolveMineralGoals(settings)
+  const vsMineralGoals: Partial<Record<MineralKey, MacroVsGoal>> = {}
+  for (const key of MINERAL_KEYS) {
+    vsMineralGoals[key] = vsGoal(mineralCompare[key] ?? 0, mineralGoals[key])
+  }
+  const coveragePct =
+    inRange.length > 0 ? round1((withData / inRange.length) * 100) : 0
+
   const meals = days === 1 ? mealBreakdown(inRange) : null
   const balance = macroBalance(totals)
-  const foods = topFoods(inRange)
+  const foodsTop = topFoods(inRange)
   const insights = buildInsights(
     days,
     compare,
     settings,
     meals,
     daySet.size,
-    inRange.length
+    inRange.length,
+    mineralCompare,
+    mineralGoals,
+    coveragePct
   )
 
   const notes: string[] = []
   const openShopping = shoppingList.filter((i) => !i.checked)
   if (openShopping.length > 0) {
     notes.push(
-      `Shopping list has ${openShopping.length} open item(s), but portion plans are not persisted â€” this analysis is diary-based only.`
+      `Shopping list has ${openShopping.length} open item(s), but portion plans are not persisted — this analysis is diary-based only.`
+    )
+  }
+  if (inRange.length > 0) {
+    notes.push(
+      `Mineral data coverage: ${withData}/${inRange.length} entries (${round0(coveragePct)}%). Totals only include foods with known mineral values.`
     )
   }
 
@@ -369,8 +491,16 @@ export function analyzeNutrition(
           }
         }
       : null,
-    topFoods: foods,
+    topFoods: foodsTop,
     insights,
-    notes
+    notes,
+    mineralTotals: mineralTotalsRaw,
+    mineralAveragePerDay,
+    vsMineralGoals,
+    mineralCoverage: {
+      entriesWithData: withData,
+      entryCount: inRange.length,
+      pct: coveragePct
+    }
   }
 }

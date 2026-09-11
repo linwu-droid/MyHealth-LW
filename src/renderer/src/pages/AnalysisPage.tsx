@@ -1,6 +1,7 @@
 import type React from 'react'
 import { useEffect, useState } from 'react'
-import type { MacroVsGoal, MealType, NutritionAnalysis } from '../../../shared/types'
+import type { MacroVsGoal, MealType, MineralKey, NutritionAnalysis } from '../../../shared/types'
+import { MINERAL_KEYS, MINERAL_META } from '../../../shared/minerals'
 import { todayIso } from '../lib/format'
 
 type Props = { onToast: (msg: string) => void }
@@ -19,6 +20,29 @@ const MEAL_LABELS: { key: MealType; label: string }[] = [
   { key: 'snacks', label: 'Snacks' }
 ]
 
+const MINERAL_COLORS: Record<MineralKey, string> = {
+  sodium: '#8b3a3a',
+  potassium: '#5f7d65',
+  calcium: '#6b8f71',
+  magnesium: '#2f6f4e',
+  phosphorus: '#7a8f6b',
+  iron: '#a05a2c',
+  zinc: '#8a7a4a',
+  copper: '#b07a3a',
+  manganese: '#6a7a5a',
+  selenium: '#4a7a8a',
+  iodine: '#5a6a8a'
+}
+
+function formatAmt(n: number, unit: string): string {
+  if (unit === 'µg' || Math.abs(n) < 10) {
+    const r = Math.round(n * 100) / 100
+    return String(r)
+  }
+  if (Math.abs(n) < 100) return String(Math.round(n * 10) / 10)
+  return String(Math.round(n))
+}
+
 function GoalBar(props: {
   label: string
   unit: string
@@ -32,12 +56,13 @@ function GoalBar(props: {
       <div className="macro-bar-head">
         <span>{props.label}</span>
         <span>
-          {Math.round(props.vs.actual)} / {props.vs.goal} {props.unit}
+          {formatAmt(props.vs.actual, props.unit)} / {formatAmt(props.vs.goal, props.unit)}{' '}
+          {props.unit}
           <span className={`muted small`} style={{ marginLeft: 8 }}>
             {Math.round(props.vs.pctOfGoal)}%
             {over
-              ? ` · +${Math.round(-props.vs.remaining)} over`
-              : ` · ${Math.round(props.vs.remaining)} left`}
+              ? ` · +${formatAmt(-props.vs.remaining, props.unit)} over`
+              : ` · ${formatAmt(props.vs.remaining, props.unit)} left`}
           </span>
         </span>
       </div>
@@ -235,6 +260,43 @@ export default function AnalysisPage({ onToast }: Props): React.JSX.Element {
                 Period totals: {Math.round(analysis.totals.kcal)} kcal ·{' '}
                 {Math.round(analysis.totals.protein)} g P · {Math.round(analysis.totals.carbs)} g
                 C · {Math.round(analysis.totals.fat)} g F · {analysis.entryCount} entries
+              </p>
+            )}
+          </div>
+
+          <div className="panel">
+            <div className="panel-header">
+              <h2>Minerals</h2>
+              <span className="badge-soft">
+                Coverage {analysis.mineralCoverage.entriesWithData}/
+                {analysis.mineralCoverage.entryCount} (
+                {Math.round(analysis.mineralCoverage.pct)}%)
+              </span>
+            </div>
+            <p className="muted small" style={{ marginTop: 0 }}>
+              {days === 1
+                ? 'Intake vs your daily mineral goals (Settings).'
+                : 'Average per day vs daily mineral goals. Totals only include foods with mineral data.'}
+            </p>
+            {MINERAL_KEYS.map((key) => {
+              const vs = analysis.vsMineralGoals[key]
+              if (!vs) return null
+              const meta = MINERAL_META[key]
+              return (
+                <GoalBar
+                  key={key}
+                  label={`${meta.label} (${meta.short})`}
+                  unit={meta.unit}
+                  vs={vs}
+                  color={MINERAL_COLORS[key]}
+                />
+              )
+            })}
+            {analysis.mineralCoverage.pct < 100 && analysis.entryCount > 0 && (
+              <p className="muted small" style={{ marginTop: 8, marginBottom: 0 }}>
+                Some diary foods lack mineral data — coverage{' '}
+                {Math.round(analysis.mineralCoverage.pct)}%. Re-log from the food database or
+                import packs for fuller mineral tracking.
               </p>
             )}
           </div>

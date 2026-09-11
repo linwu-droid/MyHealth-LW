@@ -18,9 +18,14 @@ import type {
 } from '../shared/types'
 import { buildPortionPlan, type NutritionRef } from './portions'
 import { analyzeNutrition } from './nutritionAnalysis'
+import {
+  defaultMineralGoals,
+  normalizeMinerals,
+  scaleMinerals
+} from '../shared/minerals'
 
 const STORE_FILE = 'myhealth-lw.json'
-const DATA_VERSION = 2
+const DATA_VERSION = 3
 
 function defaultSettings(): AppSettings {
   return {
@@ -29,40 +34,82 @@ function defaultSettings(): AppSettings {
     proteinGoalG: 150,
     carbsGoalG: 200,
     fatGoalG: 65,
-    weightUnit: 'kg'
+    weightUnit: 'kg',
+    // AU/NZ NRV / WHO-ish adult defaults — see shared/minerals.ts
+    mineralGoals: defaultMineralGoals()
   }
 }
 
 function seedFoods(): Food[] {
+  // Approximate USDA-style minerals per listed serving (mg; Se/I in µg). Undefined when unknown.
   const items: Omit<Food, 'id'>[] = [
-    { name: 'Chicken breast, grilled', brand: '', servingLabel: '100 g', kcal: 165, protein: 31, carbs: 0, fat: 3.6 },
-    { name: 'Egg, large', brand: '', servingLabel: '1 egg (50 g)', kcal: 72, protein: 6.3, carbs: 0.4, fat: 4.8 },
-    { name: 'Whole milk', brand: '', servingLabel: '250 ml', kcal: 149, protein: 7.7, carbs: 12, fat: 8 },
-    { name: 'Greek yogurt, plain', brand: '', servingLabel: '170 g', kcal: 100, protein: 17, carbs: 6, fat: 0.7 },
-    { name: 'Oats, dry', brand: '', servingLabel: '40 g', kcal: 152, protein: 5.3, carbs: 27, fat: 2.7 },
-    { name: 'Banana', brand: '', servingLabel: '1 medium (118 g)', kcal: 105, protein: 1.3, carbs: 27, fat: 0.4 },
-    { name: 'Apple', brand: '', servingLabel: '1 medium (182 g)', kcal: 95, protein: 0.5, carbs: 25, fat: 0.3 },
-    { name: 'Broccoli, steamed', brand: '', servingLabel: '100 g', kcal: 35, protein: 2.4, carbs: 7, fat: 0.4 },
-    { name: 'Brown rice, cooked', brand: '', servingLabel: '1 cup (195 g)', kcal: 215, protein: 5, carbs: 45, fat: 1.6 },
-    { name: 'White rice, cooked', brand: '', servingLabel: '1 cup (158 g)', kcal: 205, protein: 4.3, carbs: 45, fat: 0.4 },
-    { name: 'Salmon, baked', brand: '', servingLabel: '100 g', kcal: 208, protein: 20, carbs: 0, fat: 13 },
-    { name: 'Tuna, canned in water', brand: '', servingLabel: '1 can drained (165 g)', kcal: 191, protein: 42, carbs: 0, fat: 1.4 },
-    { name: 'Whole wheat bread', brand: '', servingLabel: '1 slice (28 g)', kcal: 69, protein: 3.6, carbs: 12, fat: 1.1 },
-    { name: 'Peanut butter', brand: '', servingLabel: '1 tbsp (16 g)', kcal: 94, protein: 4, carbs: 3.1, fat: 8 },
-    { name: 'Almonds', brand: '', servingLabel: '28 g (about 23)', kcal: 164, protein: 6, carbs: 6, fat: 14 },
-    { name: 'Avocado', brand: '', servingLabel: '1/2 fruit (68 g)', kcal: 114, protein: 1.3, carbs: 6, fat: 10.5 },
-    { name: 'Sweet potato, baked', brand: '', servingLabel: '100 g', kcal: 90, protein: 2, carbs: 21, fat: 0.2 },
-    { name: 'Potato, baked', brand: '', servingLabel: '1 medium (173 g)', kcal: 161, protein: 4.3, carbs: 37, fat: 0.2 },
-    { name: 'Cheddar cheese', brand: '', servingLabel: '28 g', kcal: 113, protein: 7, carbs: 0.4, fat: 9.3 },
-    { name: 'Olive oil', brand: '', servingLabel: '1 tbsp (14 g)', kcal: 119, protein: 0, carbs: 0, fat: 13.5 },
-    { name: 'Pasta, cooked', brand: '', servingLabel: '1 cup (140 g)', kcal: 220, protein: 8, carbs: 43, fat: 1.3 },
-    { name: 'Black beans, cooked', brand: '', servingLabel: '1/2 cup (86 g)', kcal: 114, protein: 7.6, carbs: 20, fat: 0.5 },
-    { name: 'Quinoa, cooked', brand: '', servingLabel: '1 cup (185 g)', kcal: 222, protein: 8, carbs: 39, fat: 3.6 },
-    { name: 'Whey protein shake', brand: '', servingLabel: '1 scoop (30 g)', kcal: 120, protein: 24, carbs: 3, fat: 1.5 },
-    { name: 'Coffee, black', brand: '', servingLabel: '1 cup (240 ml)', kcal: 2, protein: 0.3, carbs: 0, fat: 0 },
-    { name: 'Orange juice', brand: '', servingLabel: '250 ml', kcal: 112, protein: 1.7, carbs: 26, fat: 0.5 }
+    { name: 'Chicken breast, grilled', brand: '', servingLabel: '100 g', kcal: 165, protein: 31, carbs: 0, fat: 3.6,
+      minerals: { sodium: 74, potassium: 256, calcium: 15, magnesium: 29, phosphorus: 228, iron: 1, zinc: 1, copper: 0.05, manganese: 0.02, selenium: 27, iodine: 7 } },
+    { name: 'Egg, large', brand: '', servingLabel: '1 egg (50 g)', kcal: 72, protein: 6.3, carbs: 0.4, fat: 4.8,
+      minerals: { sodium: 71, potassium: 69, calcium: 28, magnesium: 6, phosphorus: 99, iron: 0.9, zinc: 0.6, copper: 0.04, manganese: 0.01, selenium: 15, iodine: 24 } },
+    { name: 'Whole milk', brand: '', servingLabel: '250 ml', kcal: 149, protein: 7.7, carbs: 12, fat: 8,
+      minerals: { sodium: 105, potassium: 322, calcium: 276, magnesium: 24, phosphorus: 222, iron: 0.1, zinc: 0.9, copper: 0.03, manganese: 0.01, selenium: 9, iodine: 50 } },
+    { name: 'Greek yogurt, plain', brand: '', servingLabel: '170 g', kcal: 100, protein: 17, carbs: 6, fat: 0.7,
+      minerals: { sodium: 61, potassium: 240, calcium: 187, magnesium: 19, phosphorus: 230, iron: 0.1, zinc: 0.9, selenium: 16, iodine: 40 } },
+    { name: 'Oats, dry', brand: '', servingLabel: '40 g', kcal: 152, protein: 5.3, carbs: 27, fat: 2.7,
+      minerals: { sodium: 2, potassium: 146, calcium: 21, magnesium: 56, phosphorus: 166, iron: 1.7, zinc: 1.5, copper: 0.17, manganese: 1.5, selenium: 12 } },
+    { name: 'Banana', brand: '', servingLabel: '1 medium (118 g)', kcal: 105, protein: 1.3, carbs: 27, fat: 0.4,
+      minerals: { sodium: 1, potassium: 422, calcium: 6, magnesium: 32, phosphorus: 26, iron: 0.3, zinc: 0.2, copper: 0.09, manganese: 0.3, selenium: 1 } },
+    { name: 'Apple', brand: '', servingLabel: '1 medium (182 g)', kcal: 95, protein: 0.5, carbs: 25, fat: 0.3,
+      minerals: { sodium: 2, potassium: 195, calcium: 11, magnesium: 9, phosphorus: 20, iron: 0.2, zinc: 0.1, copper: 0.05, manganese: 0.06 } },
+    { name: 'Broccoli, steamed', brand: '', servingLabel: '100 g', kcal: 35, protein: 2.4, carbs: 7, fat: 0.4,
+      minerals: { sodium: 41, potassium: 293, calcium: 40, magnesium: 21, phosphorus: 67, iron: 0.7, zinc: 0.4, copper: 0.05, manganese: 0.2, selenium: 1.6 } },
+    { name: 'Brown rice, cooked', brand: '', servingLabel: '1 cup (195 g)', kcal: 215, protein: 5, carbs: 45, fat: 1.6,
+      minerals: { sodium: 10, potassium: 154, calcium: 20, magnesium: 84, phosphorus: 150, iron: 0.8, zinc: 1.2, copper: 0.2, manganese: 1.8, selenium: 19 } },
+    { name: 'White rice, cooked', brand: '', servingLabel: '1 cup (158 g)', kcal: 205, protein: 4.3, carbs: 45, fat: 0.4,
+      minerals: { sodium: 2, potassium: 55, calcium: 16, magnesium: 19, phosphorus: 68, iron: 0.3, zinc: 0.8, copper: 0.07, manganese: 0.7, selenium: 12 } },
+    { name: 'Salmon, baked', brand: '', servingLabel: '100 g', kcal: 208, protein: 20, carbs: 0, fat: 13,
+      minerals: { sodium: 59, potassium: 384, calcium: 9, magnesium: 29, phosphorus: 252, iron: 0.5, zinc: 0.6, copper: 0.07, manganese: 0.02, selenium: 38, iodine: 14 } },
+    { name: 'Tuna, canned in water', brand: '', servingLabel: '1 can drained (165 g)', kcal: 191, protein: 42, carbs: 0, fat: 1.4,
+      minerals: { sodium: 338, potassium: 320, calcium: 18, magnesium: 40, phosphorus: 250, iron: 1.5, zinc: 1.1, selenium: 90, iodine: 30 } },
+    { name: 'Whole wheat bread', brand: '', servingLabel: '1 slice (28 g)', kcal: 69, protein: 3.6, carbs: 12, fat: 1.1,
+      minerals: { sodium: 132, potassium: 81, calcium: 30, magnesium: 24, phosphorus: 57, iron: 0.8, zinc: 0.5, copper: 0.06, manganese: 0.6, selenium: 8, iodine: 5 } },
+    { name: 'Peanut butter', brand: '', servingLabel: '1 tbsp (16 g)', kcal: 94, protein: 4, carbs: 3.1, fat: 8,
+      minerals: { sodium: 73, potassium: 104, calcium: 8, magnesium: 25, phosphorus: 56, iron: 0.3, zinc: 0.5, copper: 0.07, manganese: 0.3, selenium: 1 } },
+    { name: 'Almonds', brand: '', servingLabel: '28 g (about 23)', kcal: 164, protein: 6, carbs: 6, fat: 14,
+      minerals: { sodium: 1, potassium: 208, calcium: 76, magnesium: 76, phosphorus: 136, iron: 1, zinc: 0.9, copper: 0.3, manganese: 0.6, selenium: 1 } },
+    { name: 'Avocado', brand: '', servingLabel: '1/2 fruit (68 g)', kcal: 114, protein: 1.3, carbs: 6, fat: 10.5,
+      minerals: { sodium: 5, potassium: 345, calcium: 9, magnesium: 20, phosphorus: 36, iron: 0.4, zinc: 0.4, copper: 0.13, manganese: 0.1 } },
+    { name: 'Sweet potato, baked', brand: '', servingLabel: '100 g', kcal: 90, protein: 2, carbs: 21, fat: 0.2,
+      minerals: { sodium: 36, potassium: 475, calcium: 38, magnesium: 27, phosphorus: 54, iron: 0.7, zinc: 0.3, copper: 0.16, manganese: 0.5 } },
+    { name: 'Potato, baked', brand: '', servingLabel: '1 medium (173 g)', kcal: 161, protein: 4.3, carbs: 37, fat: 0.2,
+      minerals: { sodium: 17, potassium: 926, calcium: 26, magnesium: 48, phosphorus: 121, iron: 1.9, zinc: 0.5, copper: 0.2, manganese: 0.3, selenium: 0.7 } },
+    { name: 'Cheddar cheese', brand: '', servingLabel: '28 g', kcal: 113, protein: 7, carbs: 0.4, fat: 9.3,
+      minerals: { sodium: 174, potassium: 20, calcium: 199, magnesium: 8, phosphorus: 143, iron: 0.1, zinc: 1, selenium: 8, iodine: 12 } },
+    { name: 'Olive oil', brand: '', servingLabel: '1 tbsp (14 g)', kcal: 119, protein: 0, carbs: 0, fat: 13.5,
+      minerals: { sodium: 0, potassium: 0, calcium: 0, magnesium: 0, phosphorus: 0, iron: 0.1 } },
+    { name: 'Pasta, cooked', brand: '', servingLabel: '1 cup (140 g)', kcal: 220, protein: 8, carbs: 43, fat: 1.3,
+      minerals: { sodium: 1, potassium: 63, calcium: 10, magnesium: 25, phosphorus: 76, iron: 1.3, zinc: 0.7, copper: 0.14, manganese: 0.5, selenium: 26 } },
+    { name: 'Black beans, cooked', brand: '', servingLabel: '1/2 cup (86 g)', kcal: 114, protein: 7.6, carbs: 20, fat: 0.5,
+      minerals: { sodium: 1, potassium: 305, calcium: 23, magnesium: 60, phosphorus: 120, iron: 1.8, zinc: 1, copper: 0.18, manganese: 0.4, selenium: 1 } },
+    { name: 'Quinoa, cooked', brand: '', servingLabel: '1 cup (185 g)', kcal: 222, protein: 8, carbs: 39, fat: 3.6,
+      minerals: { sodium: 13, potassium: 318, calcium: 31, magnesium: 118, phosphorus: 281, iron: 2.8, zinc: 2, copper: 0.35, manganese: 1.2, selenium: 5 } },
+    { name: 'Whey protein shake', brand: '', servingLabel: '1 scoop (30 g)', kcal: 120, protein: 24, carbs: 3, fat: 1.5,
+      minerals: { sodium: 50, potassium: 160, calcium: 100, magnesium: 30, phosphorus: 100, iron: 0.3, zinc: 1 } },
+    { name: 'Coffee, black', brand: '', servingLabel: '1 cup (240 ml)', kcal: 2, protein: 0.3, carbs: 0, fat: 0,
+      minerals: { sodium: 5, potassium: 116, calcium: 5, magnesium: 7, phosphorus: 3, iron: 0.1, manganese: 0.05 } },
+    { name: 'Orange juice', brand: '', servingLabel: '250 ml', kcal: 112, protein: 1.7, carbs: 26, fat: 0.5,
+      minerals: { sodium: 2, potassium: 496, calcium: 27, magnesium: 27, phosphorus: 42, iron: 0.5, zinc: 0.1, copper: 0.1, manganese: 0.04, selenium: 0.3 } }
   ]
   return items.map((f) => ({ ...f, id: randomUUID() }))
+}
+
+function migrateSettings(raw: Partial<AppSettings> | undefined): AppSettings {
+  const base = defaultSettings()
+  const incoming = raw ?? {}
+  return {
+    ...base,
+    ...incoming,
+    mineralGoals: {
+      ...defaultMineralGoals(),
+      ...(incoming.mineralGoals ?? {})
+    }
+  }
 }
 
 function emptyData(): AppData {
@@ -105,7 +152,7 @@ function load(): AppData {
     const rawVersion = typeof raw.version === 'number' ? raw.version : 0
     cache = {
       version: DATA_VERSION,
-      settings: { ...defaultSettings(), ...(raw.settings ?? {}) },
+      settings: migrateSettings(raw.settings),
       foods: Array.isArray(raw.foods) ? raw.foods : seedFoods(),
       diaryEntries: Array.isArray(raw.diaryEntries) ? raw.diaryEntries : [],
       weightLogs: Array.isArray(raw.weightLogs) ? raw.weightLogs : [],
@@ -152,9 +199,19 @@ export function getSettings(): AppSettings {
 
 export function updateSettings(patch: Partial<AppSettings>): AppSettings {
   const data = load()
-  data.settings = { ...data.settings, ...patch }
+  const next = { ...data.settings, ...patch }
+  if (patch.mineralGoals !== undefined) {
+    next.mineralGoals = {
+      ...defaultMineralGoals(),
+      ...(data.settings.mineralGoals ?? {}),
+      ...patch.mineralGoals
+    }
+  } else if (!next.mineralGoals) {
+    next.mineralGoals = defaultMineralGoals()
+  }
+  data.settings = next
   save(data)
-  return { ...data.settings }
+  return { ...data.settings, mineralGoals: { ...data.settings.mineralGoals } }
 }
 
 export function listFoods(query?: string): Food[] {
@@ -170,6 +227,7 @@ export function listFoods(query?: string): Food[] {
 
 export function createFood(input: Omit<Food, 'id'>): Food {
   const data = load()
+  const minerals = normalizeMinerals(input.minerals)
   const food: Food = {
     id: randomUUID(),
     name: input.name.trim(),
@@ -178,7 +236,8 @@ export function createFood(input: Omit<Food, 'id'>): Food {
     kcal: Number(input.kcal) || 0,
     protein: Number(input.protein) || 0,
     carbs: Number(input.carbs) || 0,
-    fat: Number(input.fat) || 0
+    fat: Number(input.fat) || 0,
+    ...(minerals ? { minerals } : {})
   }
   data.foods.push(food)
   save(data)
@@ -208,6 +267,7 @@ export function createFoodsBulk(
       skipped++
       continue
     }
+    const minerals = normalizeMinerals(input.minerals)
     const food: Food = {
       id: randomUUID(),
       name,
@@ -216,7 +276,8 @@ export function createFoodsBulk(
       kcal: Number(input.kcal) || 0,
       protein: Number(input.protein) || 0,
       carbs: Number(input.carbs) || 0,
-      fat: Number(input.fat) || 0
+      fat: Number(input.fat) || 0,
+      ...(minerals ? { minerals } : {})
     }
     data.foods.push(food)
     existing.add(key)
@@ -231,6 +292,8 @@ export function updateFood(id: string, patch: Partial<Omit<Food, 'id'>>): Food |
   const idx = data.foods.findIndex((f) => f.id === id)
   if (idx < 0) return null
   const cur = data.foods[idx]
+  const nextMinerals =
+    patch.minerals !== undefined ? normalizeMinerals(patch.minerals) : cur.minerals
   data.foods[idx] = {
     ...cur,
     ...patch,
@@ -242,8 +305,10 @@ export function updateFood(id: string, patch: Partial<Omit<Food, 'id'>>): Food |
     servingLabel:
       patch.servingLabel !== undefined
         ? patch.servingLabel.trim() || '1 serving'
-        : cur.servingLabel
+        : cur.servingLabel,
+    minerals: nextMinerals
   }
+  if (!data.foods[idx].minerals) delete data.foods[idx].minerals
   save(data)
   return data.foods[idx]
 }
@@ -276,6 +341,13 @@ export function addDiary(
   input: Omit<DiaryEntry, 'id'> & { id?: string }
 ): DiaryEntry {
   const data = load()
+  let minerals = normalizeMinerals(input.minerals)
+  if (!minerals && input.foodId) {
+    const food = data.foods.find((f) => f.id === input.foodId)
+    if (food?.minerals) {
+      minerals = scaleMinerals(food.minerals, Number(input.servingQty) || 1)
+    }
+  }
   const entry: DiaryEntry = {
     id: randomUUID(),
     date: input.date.slice(0, 10),
@@ -286,7 +358,8 @@ export function addDiary(
     kcal: Number(input.kcal) || 0,
     protein: Number(input.protein) || 0,
     carbs: Number(input.carbs) || 0,
-    fat: Number(input.fat) || 0
+    fat: Number(input.fat) || 0,
+    ...(minerals ? { minerals } : {})
   }
   data.diaryEntries.push(entry)
   save(data)
@@ -541,7 +614,8 @@ export function applyPortionsToDiary(
           kcal: Math.round(rec.perDay.kcal * factor * 10) / 10,
           protein: Math.round(rec.perDay.protein * factor * 10) / 10,
           carbs: Math.round(rec.perDay.carbs * factor * 10) / 10,
-          fat: Math.round(rec.perDay.fat * factor * 10) / 10
+          fat: Math.round(rec.perDay.fat * factor * 10) / 10,
+          minerals: scaleMinerals(food.minerals, qty)
         })
         added++
       }
@@ -576,10 +650,13 @@ export function applyPortionsToDiary(
 export function getNutritionAnalysis(date: string, days = 1): NutritionAnalysis {
   const data = load()
   ensureShoppingList(data)
-  return analyzeNutrition(data.diaryEntries, data.settings, data.shoppingList, {
-    date,
-    days
-  })
+  return analyzeNutrition(
+    data.diaryEntries,
+    data.settings,
+    data.shoppingList,
+    { date, days },
+    data.foods
+  )
 }
 export function exportData(): AppData {
   return structuredClone(load())
@@ -588,7 +665,7 @@ export function exportData(): AppData {
 export function importData(incoming: AppData): AppData {
   const next: AppData = {
     version: DATA_VERSION,
-    settings: { ...defaultSettings(), ...(incoming.settings ?? {}) },
+    settings: migrateSettings(incoming.settings),
     foods: Array.isArray(incoming.foods) ? incoming.foods : [],
     diaryEntries: Array.isArray(incoming.diaryEntries) ? incoming.diaryEntries : [],
     weightLogs: Array.isArray(incoming.weightLogs) ? incoming.weightLogs : [],

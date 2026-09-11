@@ -1,6 +1,7 @@
 import type React from 'react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { DiaryEntry, Food, MealType } from '../../../shared/types'
+import { scaleMinerals } from '../../../shared/minerals'
 import { todayIso } from '../lib/format'
 
 type Props = { onToast: (msg: string) => void }
@@ -86,7 +87,8 @@ export default function DiaryPage({ onToast }: Props): React.JSX.Element {
       kcal: food.kcal * q,
       protein: food.protein * q,
       carbs: food.carbs * q,
-      fat: food.fat * q
+      fat: food.fat * q,
+      minerals: scaleMinerals(food.minerals, q)
     })
     onToast('Added to diary')
     setShowAdd(false)

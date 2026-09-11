@@ -1,3 +1,7 @@
+import type { MineralKey, MineralMap } from './minerals'
+export type { MineralKey, MineralMap } from './minerals'
+export { MINERAL_KEYS, MINERAL_META, defaultMineralGoals } from './minerals'
+
 export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snacks'
 
 export type WeightUnit = 'kg' | 'lb'
@@ -9,6 +13,8 @@ export interface AppSettings {
   carbsGoalG: number
   fatGoalG: number
   weightUnit: WeightUnit
+  /** Daily mineral goals (mg unless selenium/iodine ug). Partial overrides OK. */
+  mineralGoals?: Partial<Record<MineralKey, number>>
 }
 
 export interface Food {
@@ -20,6 +26,8 @@ export interface Food {
   protein: number
   carbs: number
   fat: number
+  /** Per-serving minerals (mg; selenium/iodine in ug). */
+  minerals?: MineralMap
 }
 
 export interface DiaryEntry {
@@ -33,6 +41,8 @@ export interface DiaryEntry {
   protein: number
   carbs: number
   fat: number
+  /** Minerals for this entry (food per-serving x qty), when known. */
+  minerals?: MineralMap
 }
 
 export interface WeightLog {
@@ -182,6 +192,14 @@ export interface NutritionInsight {
   message: string
 }
 
+export interface MineralCoverage {
+  /** Diary entries in range that contributed any mineral data. */
+  entriesWithData: number
+  entryCount: number
+  /** 0-100 */
+  pct: number
+}
+
 export interface NutritionAnalysis {
   /** End date of the window (YYYY-MM-DD). */
   date: string
@@ -207,4 +225,12 @@ export interface NutritionAnalysis {
   topFoods: TopFoodContribution[]
   insights: NutritionInsight[]
   notes: string[]
+  /** Period mineral totals (mg / ug). */
+  mineralTotals: MineralMap
+  /** Mineral totals ÷ days in window. */
+  mineralAveragePerDay: MineralMap
+  /** Compared against daily mineral goals. */
+  vsMineralGoals: Partial<Record<MineralKey, MacroVsGoal>>
+  /** How many diary entries had mineral data. */
+  mineralCoverage: MineralCoverage
 }

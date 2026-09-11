@@ -1,23 +1,34 @@
 import type React from 'react'
 import { useEffect, useState } from 'react'
-import type { AppSettings, WeightUnit } from '../../../shared/types'
+import type { AppSettings, MineralKey, WeightUnit } from '../../../shared/types'
+import { MINERAL_KEYS, MINERAL_META, defaultMineralGoals } from '../../../shared/minerals'
 
 type Props = {
   onToast: (msg: string) => void
   onReset: () => void
 }
 
+function ensureMineralGoals(s: AppSettings): AppSettings {
+  return {
+    ...s,
+    mineralGoals: { ...defaultMineralGoals(), ...(s.mineralGoals ?? {}) }
+  }
+}
+
 export default function SettingsPage({ onToast, onReset }: Props): React.JSX.Element {
   const [form, setForm] = useState<AppSettings | null>(null)
 
   useEffect(() => {
-    void window.api.getSettings().then(setForm).catch(() => onToast('Failed to load settings'))
+    void window.api
+      .getSettings()
+      .then((s) => setForm(ensureMineralGoals(s)))
+      .catch(() => onToast('Failed to load settings'))
   }, [onToast])
 
   async function save(): Promise<void> {
     if (!form) return
-    const next = await window.api.updateSettings(form)
-    setForm(next)
+    const next = await window.api.updateSettings(ensureMineralGoals(form))
+    setForm(ensureMineralGoals(next))
     onToast('Settings saved')
   }
 
@@ -34,7 +45,7 @@ export default function SettingsPage({ onToast, onReset }: Props): React.JSX.Ele
       onToast(`Import failed: ${res.error}`)
       return
     }
-    setForm(await window.api.getSettings())
+    setForm(ensureMineralGoals(await window.api.getSettings()))
     onReset()
     onToast('Data imported')
   }
@@ -45,9 +56,21 @@ export default function SettingsPage({ onToast, onReset }: Props): React.JSX.Ele
     )
     if (!ok) return
     await window.api.resetData()
-    setForm(await window.api.getSettings())
+    setForm(ensureMineralGoals(await window.api.getSettings()))
     onReset()
     onToast('Data reset')
+  }
+
+  function setMineralGoal(key: MineralKey, value: number): void {
+    if (!form) return
+    setForm({
+      ...form,
+      mineralGoals: {
+        ...defaultMineralGoals(),
+        ...(form.mineralGoals ?? {}),
+        [key]: value
+      }
+    })
   }
 
   if (!form) {
@@ -57,6 +80,8 @@ export default function SettingsPage({ onToast, onReset }: Props): React.JSX.Ele
       </div>
     )
   }
+
+  const goals = { ...defaultMineralGoals(), ...(form.mineralGoals ?? {}) }
 
   return (
     <div>
@@ -138,6 +163,35 @@ export default function SettingsPage({ onToast, onReset }: Props): React.JSX.Ele
               <option value="lb">Pounds (lb)</option>
             </select>
           </label>
+        </div>
+      </div>
+
+      <div className="panel">
+        <div className="panel-header">
+          <h2>Daily mineral goals</h2>
+          <span className="badge-soft">Adult defaults · AU/NZ NRV-ish</span>
+        </div>
+        <p className="muted small" style={{ marginTop: 0 }}>
+          Defaults follow general adult AU/NZ NRV / WHO guidance (sodium ≈ 2000 mg suggested
+          target; iron/zinc mid-range). Override any value below. Selenium and iodine are in µg;
+          others in mg.
+        </p>
+        <div className="form-grid">
+          {MINERAL_KEYS.map((key) => {
+            const meta = MINERAL_META[key]
+            return (
+              <label key={key}>
+                {meta.label} ({meta.unit})
+                <input
+                  className="input"
+                  type="number"
+                  step="any"
+                  value={goals[key]}
+                  onChange={(e) => setMineralGoal(key, Number(e.target.value) || 0)}
+                />
+              </label>
+            )
+          })}
         </div>
       </div>
 
