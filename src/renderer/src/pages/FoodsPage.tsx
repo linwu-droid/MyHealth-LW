@@ -3,7 +3,7 @@ import type { Food } from '../../../shared/types'
 import NutritionDetail from '../lib/NutritionDetail'
 
 type Props = { onToast: (msg: string) => void }
-type FoodKindFilter = 'all' | 'foods' | 'drinks' | 'homemade' | 'supermarket'
+type FoodKindFilter = 'all' | 'foods' | 'drinks' | 'homemade' | 'supermarket' | 'healthyShelf'
 
 const DRINK_SERVING_RE = /ml|cup|oz|litre|liter|bottle/i
 const DRINK_NAME_RE =
@@ -25,6 +25,13 @@ const SUPERMARKET_NAME_RE =
 
 function isSupermarketFood(f: Food): boolean {
   return SUPERMARKET_NAME_RE.test(f.name)
+}
+
+const HEALTHY_SHELF_NAME_RE =
+  /oat|bran|cereal|muesli|granola|weet|flakes|porridge|chia|flax|crispbread|rice cake|psyllium|quinoa flakes|buckwheat|barley|freekeh|bulgur|thins|linseed|hemp seed|pumpkin seed|sunflower seed|tahini|almond butter|natural peanut|coconut flakes|medjool|prune dried|wheat germ|spelt|amaranth|goji|cacao nib|nutritional yeast|popcorn kernel|overnight oat|bircher|millet|corn thin/i
+
+function isHealthyShelfFood(f: Food): boolean {
+  return HEALTHY_SHELF_NAME_RE.test(f.name)
 }
 
 const blank = {
@@ -62,8 +69,14 @@ export default function FoodsPage({ onToast }: Props): React.JSX.Element {
     if (kindFilter === 'drinks') return foods.filter(isDrinkFood)
     if (kindFilter === 'homemade') return foods.filter((f) => isHomemadeFood(f) && !isDrinkFood(f))
     if (kindFilter === 'supermarket')
-      return foods.filter((f) => isSupermarketFood(f) && !isDrinkFood(f) && !isHomemadeFood(f))
-    return foods.filter((f) => !isDrinkFood(f) && !isHomemadeFood(f) && !isSupermarketFood(f))
+      return foods.filter(
+        (f) => isSupermarketFood(f) && !isDrinkFood(f) && !isHomemadeFood(f) && !isHealthyShelfFood(f)
+      )
+    if (kindFilter === 'healthyShelf')
+      return foods.filter((f) => isHealthyShelfFood(f) && !isDrinkFood(f) && !isHomemadeFood(f))
+    return foods.filter(
+      (f) => !isDrinkFood(f) && !isHomemadeFood(f) && !isSupermarketFood(f) && !isHealthyShelfFood(f)
+    )
   }, [foods, kindFilter])
 
   function openCreate(): void {
@@ -128,7 +141,8 @@ export default function FoodsPage({ onToast }: Props): React.JSX.Element {
               ['foods', 'Foods'],
               ['drinks', 'Drinks'],
               ['homemade', 'Homemade'],
-              ['supermarket', 'Supermarket']
+              ['supermarket', 'Supermarket'],
+              ['healthyShelf', 'Healthy shelf']
             ] as const
           ).map(([id, label]) => (
             <button
@@ -147,7 +161,7 @@ export default function FoodsPage({ onToast }: Props): React.JSX.Element {
           <input
             className="input"
             style={{ width: 220, marginTop: 0 }}
-            placeholder="Search foods…"
+            placeholder="Search foodsâ€¦"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
@@ -248,7 +262,7 @@ export default function FoodsPage({ onToast }: Props): React.JSX.Element {
             <h3>No foods found</h3>
             <p>
               Add a food, clear the search, or switch All / Foods / Drinks / Homemade /
-              Supermarket. Shelf-stable and drink packs are auto-seeded into this database.
+              Supermarket / Healthy shelf. Shelf-stable and drink packs are auto-seeded into this database.
             </p>
           </div>
         ) : (
@@ -271,7 +285,7 @@ export default function FoodsPage({ onToast }: Props): React.JSX.Element {
                   <Fragment key={f.id}>
                     <tr>
                       <td>{f.name}</td>
-                      <td>{f.brand || '—'}</td>
+                      <td>{f.brand || 'â€”'}</td>
                       <td>{f.servingLabel}</td>
                       <td>{f.kcal}</td>
                       <td>{f.protein}</td>

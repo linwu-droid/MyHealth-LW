@@ -1005,3 +1005,215 @@ export async function fetchSupermarketFoodsPack(
 export function getSupermarketSeedInputs(): Omit<Food, 'id'>[] {
   return SUPERMARKET_SEED.map(toFoodInput)
 }
+
+/**
+ * Curated healthy shelf / cereal pantry staples with realistic per-serving nutrition.
+ * Clean generic names (no messy OFF brands). Dedupes by name|brand against existing foods.
+ */
+const HEALTHY_SHELF_SEED: OnlineFoodCandidate[] = [
+  // Oats & bran
+  { sourceId: 'seed-hs-rolled-oats', source: 'openfoodfacts', name: 'Rolled oats', servingLabel: '40 g (1/2 cup)', kcal: 152, protein: 5.3, carbs: 27, fat: 2.7,
+    minerals: { sodium: 2, potassium: 146, calcium: 21, magnesium: 56, phosphorus: 166, iron: 1.7, zinc: 1.5, manganese: 1.5, selenium: 12 } },
+  { sourceId: 'seed-hs-quick-oats', source: 'openfoodfacts', name: 'Quick oats', servingLabel: '40 g', kcal: 150, protein: 5, carbs: 27, fat: 2.5,
+    minerals: { sodium: 3, potassium: 140, calcium: 20, magnesium: 52, phosphorus: 160, iron: 1.6, zinc: 1.4, manganese: 1.4 } },
+  { sourceId: 'seed-hs-steel-cut-oats', source: 'openfoodfacts', name: 'Steel-cut oats', servingLabel: '40 g dry', kcal: 150, protein: 5, carbs: 27, fat: 2.5,
+    minerals: { sodium: 1, potassium: 150, calcium: 20, magnesium: 55, phosphorus: 170, iron: 1.8, zinc: 1.5, manganese: 1.6 } },
+  { sourceId: 'seed-hs-oat-bran', source: 'openfoodfacts', name: 'Oat bran', servingLabel: '40 g', kcal: 98, protein: 6.9, carbs: 26, fat: 2.8,
+    minerals: { sodium: 2, potassium: 226, calcium: 23, magnesium: 94, phosphorus: 293, iron: 2.2, zinc: 1.2, manganese: 2.2, selenium: 18 } },
+  { sourceId: 'seed-hs-wheat-bran', source: 'openfoodfacts', name: 'Wheat bran', servingLabel: '30 g', kcal: 65, protein: 4.7, carbs: 19, fat: 1.3,
+    minerals: { sodium: 1, potassium: 354, calcium: 22, magnesium: 183, phosphorus: 304, iron: 3.2, zinc: 2.2, manganese: 3.5, selenium: 23 } },
+  { sourceId: 'seed-hs-rice-bran', source: 'openfoodfacts', name: 'Rice bran', servingLabel: '30 g', kcal: 95, protein: 4, carbs: 15, fat: 6.3,
+    minerals: { sodium: 2, potassium: 445, calcium: 17, magnesium: 234, phosphorus: 503, iron: 5.6, zinc: 1.8, manganese: 4.3 } },
+  { sourceId: 'seed-hs-psyllium-husk', source: 'openfoodfacts', name: 'Psyllium husk', servingLabel: '1 tbsp (10 g)', kcal: 20, protein: 0.2, carbs: 8, fat: 0.1,
+    minerals: { sodium: 5, potassium: 80, calcium: 15, magnesium: 10, phosphorus: 20, iron: 0.5 } },
+  { sourceId: 'seed-hs-oat-flour', source: 'openfoodfacts', name: 'Oat flour', servingLabel: '30 g', kcal: 114, protein: 4, carbs: 20, fat: 2,
+    minerals: { sodium: 2, potassium: 110, calcium: 16, magnesium: 42, phosphorus: 125, iron: 1.3, zinc: 1.1, manganese: 1.1 } },
+  { sourceId: 'seed-hs-gluten-free-oats', source: 'openfoodfacts', name: 'Gluten-free oats', servingLabel: '40 g', kcal: 152, protein: 5.3, carbs: 27, fat: 2.7,
+    minerals: { sodium: 2, potassium: 146, calcium: 21, magnesium: 56, phosphorus: 166, iron: 1.7, zinc: 1.5, manganese: 1.5 } },
+
+  // Cereals (AU / shelf healthy)
+  { sourceId: 'seed-hs-wheat-biscuits', source: 'openfoodfacts', name: 'Wheat biscuits (Weet-Bix style)', servingLabel: '2 biscuits (30 g)', kcal: 110, protein: 4, carbs: 20, fat: 0.5,
+    minerals: { sodium: 80, potassium: 110, calcium: 15, magnesium: 35, phosphorus: 100, iron: 3, zinc: 0.8 } },
+  { sourceId: 'seed-hs-bran-flakes', source: 'openfoodfacts', name: 'Bran flakes', servingLabel: '40 g', kcal: 130, protein: 4.5, carbs: 28, fat: 1,
+    minerals: { sodium: 180, potassium: 220, calcium: 40, magnesium: 60, phosphorus: 180, iron: 4, zinc: 1.5, manganese: 1.2 } },
+  { sourceId: 'seed-hs-sultana-bran', source: 'openfoodfacts', name: 'Sultana bran', servingLabel: '45 g', kcal: 150, protein: 4, carbs: 32, fat: 1.2,
+    minerals: { sodium: 160, potassium: 250, calcium: 30, magnesium: 50, phosphorus: 150, iron: 3.5, zinc: 1.2 } },
+  { sourceId: 'seed-hs-cornflakes', source: 'openfoodfacts', name: 'Cornflakes', servingLabel: '30 g (1 cup)', kcal: 110, protein: 2, carbs: 25, fat: 0.2,
+    minerals: { sodium: 200, potassium: 30, calcium: 2, magnesium: 8, phosphorus: 20, iron: 2.5, zinc: 0.2 } },
+  { sourceId: 'seed-hs-rice-bubbles', source: 'openfoodfacts', name: 'Rice bubbles / puffed rice', servingLabel: '30 g', kcal: 115, protein: 2, carbs: 26, fat: 0.3,
+    minerals: { sodium: 180, potassium: 25, calcium: 3, magnesium: 10, phosphorus: 30, iron: 2, zinc: 0.3 } },
+  { sourceId: 'seed-hs-special-k-style', source: 'openfoodfacts', name: 'Special K-style flakes', servingLabel: '30 g', kcal: 115, protein: 6, carbs: 22, fat: 0.5,
+    minerals: { sodium: 190, potassium: 80, calcium: 20, magnesium: 20, phosphorus: 80, iron: 3.5, zinc: 0.8 } },
+  { sourceId: 'seed-hs-all-bran-style', source: 'openfoodfacts', name: 'All-Bran style cereal', servingLabel: '40 g', kcal: 110, protein: 5, carbs: 28, fat: 1.5,
+    minerals: { sodium: 200, potassium: 350, calcium: 50, magnesium: 100, phosphorus: 250, iron: 4.5, zinc: 2, manganese: 2 } },
+  { sourceId: 'seed-hs-porridge-oats-dry', source: 'openfoodfacts', name: 'Porridge oats (dry)', servingLabel: '40 g', kcal: 150, protein: 5, carbs: 27, fat: 2.5,
+    minerals: { sodium: 2, potassium: 145, calcium: 20, magnesium: 55, phosphorus: 165, iron: 1.7, zinc: 1.4, manganese: 1.5 } },
+  { sourceId: 'seed-hs-overnight-oats-base', source: 'openfoodfacts', name: 'Overnight oats base', servingLabel: '50 g dry mix', kcal: 190, protein: 6.5, carbs: 33, fat: 4,
+    minerals: { sodium: 5, potassium: 180, calcium: 40, magnesium: 70, phosphorus: 200, iron: 2, zinc: 1.8, manganese: 1.6 } },
+  { sourceId: 'seed-hs-granola-low-sugar', source: 'openfoodfacts', name: 'Granola (low sugar)', servingLabel: '40 g', kcal: 170, protein: 4.5, carbs: 24, fat: 6.5,
+    minerals: { sodium: 40, potassium: 140, calcium: 30, magnesium: 45, phosphorus: 120, iron: 1.5, zinc: 1.2, manganese: 1 } },
+  { sourceId: 'seed-hs-granola-honey', source: 'openfoodfacts', name: 'Granola (honey)', servingLabel: '40 g', kcal: 185, protein: 4, carbs: 28, fat: 7,
+    minerals: { sodium: 50, potassium: 130, calcium: 25, magnesium: 40, phosphorus: 110, iron: 1.4, zinc: 1, manganese: 0.9 } },
+  { sourceId: 'seed-hs-muesli-toasted', source: 'openfoodfacts', name: 'Muesli toasted', servingLabel: '40 g', kcal: 165, protein: 4.5, carbs: 26, fat: 5.5,
+    minerals: { sodium: 30, potassium: 160, calcium: 30, magnesium: 45, phosphorus: 130, iron: 1.6, zinc: 1.2 } },
+  { sourceId: 'seed-hs-muesli-untoasted', source: 'openfoodfacts', name: 'Muesli untoasted', servingLabel: '40 g', kcal: 150, protein: 4, carbs: 26, fat: 4,
+    minerals: { sodium: 15, potassium: 170, calcium: 25, magnesium: 50, phosphorus: 140, iron: 1.8, zinc: 1.3 } },
+  { sourceId: 'seed-hs-bircher-muesli-mix', source: 'openfoodfacts', name: 'Bircher muesli mix', servingLabel: '45 g dry', kcal: 170, protein: 5, carbs: 28, fat: 5,
+    minerals: { sodium: 20, potassium: 200, calcium: 35, magnesium: 55, phosphorus: 150, iron: 1.8, zinc: 1.3 } },
+  { sourceId: 'seed-hs-quinoa-flakes', source: 'openfoodfacts', name: 'Quinoa flakes', servingLabel: '40 g', kcal: 147, protein: 5.5, carbs: 26, fat: 2.2,
+    minerals: { sodium: 5, potassium: 225, calcium: 20, magnesium: 80, phosphorus: 180, iron: 1.8, zinc: 1.2, manganese: 0.8 } },
+  { sourceId: 'seed-hs-buckwheat-groats', source: 'openfoodfacts', name: 'Buckwheat groats', servingLabel: '45 g dry', kcal: 155, protein: 5.5, carbs: 32, fat: 1.5,
+    minerals: { sodium: 1, potassium: 210, calcium: 8, magnesium: 105, phosphorus: 155, iron: 1.2, zinc: 1.1, manganese: 0.7 } },
+  { sourceId: 'seed-hs-millet', source: 'openfoodfacts', name: 'Millet (dry)', servingLabel: '45 g dry', kcal: 170, protein: 5, carbs: 33, fat: 1.9,
+    minerals: { sodium: 2, potassium: 88, calcium: 4, magnesium: 51, phosphorus: 128, iron: 1.4, zinc: 0.8, manganese: 0.7 } },
+  { sourceId: 'seed-hs-barley-pearl', source: 'openfoodfacts', name: 'Barley pearl', servingLabel: '45 g dry', kcal: 158, protein: 4.5, carbs: 35, fat: 0.7,
+    minerals: { sodium: 4, potassium: 126, calcium: 13, magnesium: 35, phosphorus: 100, iron: 1.1, zinc: 0.9, manganese: 0.6, selenium: 17 } },
+  { sourceId: 'seed-hs-freekeh', source: 'openfoodfacts', name: 'Freekeh', servingLabel: '45 g dry', kcal: 155, protein: 6.5, carbs: 30, fat: 1.2,
+    minerals: { sodium: 5, potassium: 180, calcium: 20, magnesium: 50, phosphorus: 140, iron: 2, zinc: 1.5, manganese: 1.2 } },
+  { sourceId: 'seed-hs-bulgur', source: 'openfoodfacts', name: 'Bulgur', servingLabel: '45 g dry', kcal: 154, protein: 5.5, carbs: 34, fat: 0.6,
+    minerals: { sodium: 8, potassium: 185, calcium: 16, magnesium: 74, phosphorus: 135, iron: 1.1, zinc: 0.9, manganese: 1.4 } },
+  { sourceId: 'seed-hs-protein-granola', source: 'openfoodfacts', name: 'Protein granola', servingLabel: '40 g', kcal: 175, protein: 12, carbs: 18, fat: 6,
+    minerals: { sodium: 80, potassium: 160, calcium: 60, magnesium: 50, phosphorus: 180, iron: 2, zinc: 1.5 } },
+  { sourceId: 'seed-hs-high-fibre-cereal', source: 'openfoodfacts', name: 'High-fibre cereal', servingLabel: '40 g', kcal: 120, protein: 5, carbs: 27, fat: 1.5,
+    minerals: { sodium: 150, potassium: 280, calcium: 45, magnesium: 80, phosphorus: 200, iron: 4, zinc: 1.8, manganese: 1.5 } },
+
+  // Healthy crackers / crispbread
+  { sourceId: 'seed-hs-rice-cakes-plain', source: 'openfoodfacts', name: 'Rice cakes plain', servingLabel: '2 cakes (18 g)', kcal: 70, protein: 1.2, carbs: 15, fat: 0.5,
+    minerals: { sodium: 20, potassium: 30, magnesium: 15, phosphorus: 40, iron: 0.3, manganese: 0.4 } },
+  { sourceId: 'seed-hs-corn-thins', source: 'openfoodfacts', name: 'Corn thins', servingLabel: '3 thins (18 g)', kcal: 70, protein: 1.5, carbs: 14, fat: 0.8,
+    minerals: { sodium: 40, potassium: 35, magnesium: 12, phosphorus: 35, iron: 0.3 } },
+  { sourceId: 'seed-hs-rye-crispbread', source: 'openfoodfacts', name: 'Rye crispbread', servingLabel: '2 slices (20 g)', kcal: 70, protein: 2, carbs: 14, fat: 0.5,
+    minerals: { sodium: 100, potassium: 80, calcium: 10, magnesium: 20, phosphorus: 60, iron: 0.8, zinc: 0.5, manganese: 0.6 } },
+  { sourceId: 'seed-hs-wholegrain-crackers', source: 'openfoodfacts', name: 'Wholegrain crackers', servingLabel: '4 crackers (20 g)', kcal: 85, protein: 2, carbs: 13, fat: 2.5,
+    minerals: { sodium: 120, potassium: 50, calcium: 15, magnesium: 18, phosphorus: 50, iron: 0.6, zinc: 0.4 } },
+
+  // Spreads / nuts / seeds shelf
+  { sourceId: 'seed-hs-natural-peanut-butter', source: 'openfoodfacts', name: 'Natural peanut butter', servingLabel: '1 tbsp (16 g)', kcal: 95, protein: 4, carbs: 3, fat: 8,
+    minerals: { sodium: 5, potassium: 110, magnesium: 25, phosphorus: 55, iron: 0.3, zinc: 0.5, manganese: 0.3 } },
+  { sourceId: 'seed-hs-almond-butter', source: 'openfoodfacts', name: 'Almond butter', servingLabel: '1 tbsp (16 g)', kcal: 98, protein: 3.4, carbs: 3, fat: 9,
+    minerals: { sodium: 1, potassium: 120, calcium: 45, magnesium: 45, phosphorus: 80, iron: 0.6, zinc: 0.5, manganese: 0.4 } },
+  { sourceId: 'seed-hs-tahini', source: 'openfoodfacts', name: 'Tahini', servingLabel: '1 tbsp (15 g)', kcal: 89, protein: 2.6, carbs: 3.2, fat: 8,
+    minerals: { sodium: 5, potassium: 62, calcium: 64, magnesium: 14, phosphorus: 110, iron: 0.7, zinc: 0.7, manganese: 0.2 } },
+  { sourceId: 'seed-hs-chia-seeds', source: 'openfoodfacts', name: 'Chia seeds', servingLabel: '1 tbsp (12 g)', kcal: 58, protein: 2, carbs: 5, fat: 3.7,
+    minerals: { sodium: 2, potassium: 50, calcium: 75, magnesium: 40, phosphorus: 100, iron: 0.9, zinc: 0.5, manganese: 0.3 } },
+  { sourceId: 'seed-hs-flaxseed', source: 'openfoodfacts', name: 'Flaxseed / linseed', servingLabel: '1 tbsp (10 g)', kcal: 55, protein: 1.9, carbs: 3, fat: 4.3,
+    minerals: { sodium: 3, potassium: 81, calcium: 26, magnesium: 39, phosphorus: 64, iron: 0.6, zinc: 0.4, manganese: 0.2 } },
+  { sourceId: 'seed-hs-hemp-seeds', source: 'openfoodfacts', name: 'Hemp seeds', servingLabel: '1 tbsp (10 g)', kcal: 55, protein: 3.2, carbs: 0.9, fat: 4.9,
+    minerals: { sodium: 1, potassium: 120, calcium: 7, magnesium: 70, phosphorus: 165, iron: 0.8, zinc: 1, manganese: 0.7 } },
+  { sourceId: 'seed-hs-pumpkin-seeds', source: 'openfoodfacts', name: 'Pumpkin seeds', servingLabel: '28 g', kcal: 151, protein: 7, carbs: 5, fat: 13,
+    minerals: { sodium: 5, potassium: 230, magnesium: 150, phosphorus: 330, iron: 2.5, zinc: 2.2, manganese: 1.3 } },
+  { sourceId: 'seed-hs-sunflower-seeds', source: 'openfoodfacts', name: 'Sunflower seeds', servingLabel: '28 g', kcal: 164, protein: 5.5, carbs: 6, fat: 14,
+    minerals: { sodium: 3, potassium: 240, calcium: 25, magnesium: 90, phosphorus: 320, iron: 1.5, zinc: 1.5, manganese: 0.6, selenium: 15 } },
+  { sourceId: 'seed-hs-mixed-raw-nuts', source: 'openfoodfacts', name: 'Mixed raw nuts', servingLabel: '28 g', kcal: 170, protein: 5, carbs: 6, fat: 15,
+    minerals: { sodium: 2, potassium: 180, calcium: 40, magnesium: 60, phosphorus: 130, iron: 1, zinc: 1, manganese: 0.5 } },
+  { sourceId: 'seed-hs-walnuts', source: 'openfoodfacts', name: 'Walnuts', servingLabel: '28 g', kcal: 185, protein: 4.3, carbs: 3.9, fat: 18.5,
+    minerals: { sodium: 1, potassium: 125, calcium: 28, magnesium: 45, phosphorus: 98, iron: 0.8, zinc: 0.9, manganese: 1, copper: 0.45 } },
+  { sourceId: 'seed-hs-almonds', source: 'openfoodfacts', name: 'Almonds raw', servingLabel: '28 g', kcal: 164, protein: 6, carbs: 6, fat: 14,
+    minerals: { sodium: 1, potassium: 208, calcium: 76, magnesium: 76, phosphorus: 136, iron: 1, zinc: 0.9, copper: 0.3, manganese: 0.6 } },
+
+  // Shelf healthy extras
+  { sourceId: 'seed-hs-coconut-flakes', source: 'openfoodfacts', name: 'Coconut flakes unsweetened', servingLabel: '15 g', kcal: 94, protein: 1, carbs: 3.5, fat: 9,
+    minerals: { sodium: 5, potassium: 80, magnesium: 15, phosphorus: 30, iron: 0.5, manganese: 0.4 } },
+  { sourceId: 'seed-hs-dried-cranberries', source: 'openfoodfacts', name: 'Dried cranberries', servingLabel: '40 g', kcal: 123, protein: 0.1, carbs: 33, fat: 0.5,
+    minerals: { sodium: 2, potassium: 20, calcium: 4, magnesium: 2, phosphorus: 4, iron: 0.2 } },
+  { sourceId: 'seed-hs-raisins', source: 'openfoodfacts', name: 'Raisins', servingLabel: '40 g', kcal: 120, protein: 1.2, carbs: 32, fat: 0.2,
+    minerals: { sodium: 5, potassium: 300, calcium: 20, magnesium: 13, phosphorus: 40, iron: 0.8, zinc: 0.1, manganese: 0.1 } },
+  { sourceId: 'seed-hs-dates-medjool', source: 'openfoodfacts', name: 'Dates medjool', servingLabel: '2 dates (48 g)', kcal: 133, protein: 0.9, carbs: 36, fat: 0.1,
+    minerals: { sodium: 1, potassium: 334, calcium: 30, magnesium: 26, phosphorus: 30, iron: 0.4, zinc: 0.2, manganese: 0.1 } },
+  { sourceId: 'seed-hs-prune-dried', source: 'openfoodfacts', name: 'Prune dried', servingLabel: '5 prunes (40 g)', kcal: 96, protein: 0.9, carbs: 25, fat: 0.2,
+    minerals: { sodium: 1, potassium: 290, calcium: 20, magnesium: 16, phosphorus: 28, iron: 0.4, zinc: 0.2, manganese: 0.1 } },
+  { sourceId: 'seed-hs-amaranth-puffs', source: 'openfoodfacts', name: 'Amaranth puffs', servingLabel: '20 g', kcal: 75, protein: 2.8, carbs: 13, fat: 1.4,
+    minerals: { sodium: 5, potassium: 100, calcium: 30, magnesium: 50, phosphorus: 90, iron: 1.5, zinc: 0.6, manganese: 0.7 } },
+  { sourceId: 'seed-hs-spelt-flakes', source: 'openfoodfacts', name: 'Spelt flakes', servingLabel: '40 g', kcal: 140, protein: 5.5, carbs: 28, fat: 1.2,
+    minerals: { sodium: 5, potassium: 155, calcium: 15, magnesium: 50, phosphorus: 160, iron: 1.8, zinc: 1.3, manganese: 1.2 } },
+  { sourceId: 'seed-hs-wheat-germ', source: 'openfoodfacts', name: 'Wheat germ', servingLabel: '2 tbsp (15 g)', kcal: 54, protein: 3.5, carbs: 7.5, fat: 1.5,
+    minerals: { sodium: 2, potassium: 135, calcium: 6, magnesium: 40, phosphorus: 160, iron: 1.2, zinc: 1.8, manganese: 2, selenium: 10 } },
+  { sourceId: 'seed-hs-sesame-seeds', source: 'openfoodfacts', name: 'Sesame seeds', servingLabel: '1 tbsp (9 g)', kcal: 52, protein: 1.6, carbs: 2.1, fat: 4.5,
+    minerals: { sodium: 1, potassium: 42, calcium: 88, magnesium: 32, phosphorus: 57, iron: 1.3, zinc: 0.7, manganese: 0.2 } },
+  { sourceId: 'seed-hs-goji-berries', source: 'openfoodfacts', name: 'Goji berries dried', servingLabel: '28 g', kcal: 98, protein: 4, carbs: 22, fat: 0.3,
+    minerals: { sodium: 75, potassium: 280, calcium: 40, magnesium: 20, phosphorus: 50, iron: 1.5, zinc: 0.5 } },
+  { sourceId: 'seed-hs-cacao-nibs', source: 'openfoodfacts', name: 'Cacao nibs', servingLabel: '15 g', kcal: 70, protein: 2, carbs: 5, fat: 6,
+    minerals: { sodium: 2, potassium: 110, magnesium: 40, phosphorus: 60, iron: 1.2, zinc: 0.5, manganese: 0.3 } },
+  { sourceId: 'seed-hs-nutritional-yeast', source: 'openfoodfacts', name: 'Nutritional yeast', servingLabel: '2 tbsp (10 g)', kcal: 40, protein: 5, carbs: 4, fat: 0.5,
+    minerals: { sodium: 5, potassium: 180, calcium: 5, magnesium: 15, phosphorus: 120, iron: 0.5, zinc: 2 } },
+  { sourceId: 'seed-hs-popcorn-kernels', source: 'openfoodfacts', name: 'Popcorn kernels (dry)', servingLabel: '30 g', kcal: 112, protein: 3.5, carbs: 22, fat: 1.3,
+    minerals: { sodium: 2, potassium: 100, magnesium: 40, phosphorus: 90, iron: 0.9, zinc: 0.8, manganese: 0.3 } },
+  { sourceId: 'seed-hs-buckwheat-flakes', source: 'openfoodfacts', name: 'Buckwheat flakes', servingLabel: '40 g', kcal: 140, protein: 5, carbs: 28, fat: 1.4,
+    minerals: { sodium: 2, potassium: 185, magnesium: 90, phosphorus: 140, iron: 1, zinc: 1, manganese: 0.6 } },
+  { sourceId: 'seed-hs-barley-flakes', source: 'openfoodfacts', name: 'Barley flakes', servingLabel: '40 g', kcal: 140, protein: 4, carbs: 30, fat: 1,
+    minerals: { sodium: 5, potassium: 110, magnesium: 30, phosphorus: 90, iron: 1, zinc: 0.8, manganese: 0.5, selenium: 15 } },
+  { sourceId: 'seed-hs-multigrain-cereal', source: 'openfoodfacts', name: 'Multigrain cereal', servingLabel: '40 g', kcal: 145, protein: 4.5, carbs: 28, fat: 2,
+    minerals: { sodium: 100, potassium: 150, magnesium: 45, phosphorus: 130, iron: 3, zinc: 1.2, manganese: 1 } },
+  { sourceId: 'seed-hs-oat-clusters', source: 'openfoodfacts', name: 'Oat clusters (low sugar)', servingLabel: '40 g', kcal: 160, protein: 4, carbs: 26, fat: 5,
+    minerals: { sodium: 40, potassium: 130, magnesium: 40, phosphorus: 120, iron: 1.4, zinc: 1.1 } },
+  { sourceId: 'seed-hs-wheat-biscuits-mini', source: 'openfoodfacts', name: 'Mini wheat biscuits', servingLabel: '30 g', kcal: 108, protein: 3.8, carbs: 20, fat: 0.5,
+    minerals: { sodium: 70, potassium: 100, magnesium: 30, phosphorus: 90, iron: 2.8, zinc: 0.7 } },
+  { sourceId: 'seed-hs-bran-sticks', source: 'openfoodfacts', name: 'Bran sticks cereal', servingLabel: '40 g', kcal: 115, protein: 5, carbs: 27, fat: 1.2,
+    minerals: { sodium: 180, potassium: 320, magnesium: 90, phosphorus: 220, iron: 4, zinc: 1.8, manganese: 1.8 } },
+]
+
+/** Optional OFF enrichment terms for healthy shelf (seed-first pack). */
+const HEALTHY_SHELF_QUERIES = [
+  'oat bran', 'steel cut oats', 'wheat bran', 'psyllium husk',
+  'bran flakes', 'sultana bran', 'granola low sugar', 'bircher muesli',
+  'quinoa flakes', 'buckwheat groats', 'chia seeds', 'flaxseed',
+  'rye crispbread', 'almond butter', 'tahini', 'hemp seeds'
+]
+
+/**
+ * Builds a healthy shelf / cereal pantry pack: curated seed first, then optional OFF enrichment.
+ * Dedupes by name+brand. Seed ensures useful items even when OFF is unreachable.
+ */
+export async function fetchHealthyShelfPack(
+  targetCount = 100
+): Promise<OnlineFoodCandidate[]> {
+  const out: OnlineFoodCandidate[] = []
+  const seen = new Set<string>()
+  let index = 0
+  let failures = 0
+
+  for (const seed of HEALTHY_SHELF_SEED) {
+    const key = foodKey(seed.name, seed.brand)
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push({ ...seed })
+  }
+
+  const batchSize = 4
+  for (let i = 0; i < HEALTHY_SHELF_QUERIES.length && out.length < targetCount; i += batchSize) {
+    const batch = HEALTHY_SHELF_QUERIES.slice(i, i + batchSize)
+    const results = await Promise.all(
+      batch.map(async (term) => {
+        try {
+          return await offSearch(term, 10)
+        } catch {
+          failures++
+          return [] as OffProduct[]
+        }
+      })
+    )
+    for (const products of results) {
+      for (const p of products) {
+        if (out.length >= targetCount) break
+        const food = parseProduct(p, index++)
+        if (!food) continue
+        const key = foodKey(food.name, food.brand)
+        if (seen.has(key)) continue
+        seen.add(key)
+        out.push(food)
+      }
+    }
+  }
+
+  if (out.length === 0 && failures > 0) {
+    throw new Error(
+      'Open Food Facts is unreachable right now. Try again in a few minutes.'
+    )
+  }
+
+  return out
+}
+
+export function getHealthyShelfSeedInputs(): Omit<Food, 'id'>[] {
+  return HEALTHY_SHELF_SEED.map(toFoodInput)
+}
