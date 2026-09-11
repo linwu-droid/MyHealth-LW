@@ -9,7 +9,8 @@ import type {
   OnlineFoodCandidate,
   PortionPlan,
   ShoppingListItem,
-  WeightLog
+  WeightLog,
+  NutritionAnalysis
 } from '../shared/types'
 
 export type BulkImportResult = {
@@ -25,6 +26,9 @@ export type CommonPackImportResult = BulkImportResult & {
 const api = {
   getDashboard: (date: string): Promise<DashboardSummary> =>
     ipcRenderer.invoke('dashboard:get', date),
+
+  analyzeNutrition: (opts: { date?: string; days?: number }): Promise<NutritionAnalysis> =>
+    ipcRenderer.invoke('nutrition:analyze', opts),
 
   getSettings: (): Promise<AppSettings> => ipcRenderer.invoke('settings:get'),
   updateSettings: (patch: Partial<AppSettings>): Promise<AppSettings> =>
@@ -104,3 +108,4 @@ const api = {
 contextBridge.exposeInMainWorld('api', api)
 
 export type MyHealthApi = typeof api
+

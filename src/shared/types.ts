@@ -141,3 +141,70 @@ export interface PortionPlan {
   totalsPeriod: MacroTotals
   unmatchedCount: number
 }
+
+/** Macro actual vs Settings goal (daily for single day; avg/day for ranges). */
+export interface MacroVsGoal {
+  actual: number
+  goal: number
+  pctOfGoal: number
+  /** Positive = remaining under goal; negative = over. */
+  remaining: number
+}
+
+export interface MacroBalance {
+  /** % of kcal from protein (4 kcal/g). */
+  proteinPct: number
+  /** % of kcal from carbs (4 kcal/g). */
+  carbsPct: number
+  /** % of kcal from fat (9 kcal/g). */
+  fatPct: number
+}
+
+export interface MealBreakdown {
+  breakfast: MacroTotals
+  lunch: MacroTotals
+  dinner: MacroTotals
+  snacks: MacroTotals
+}
+
+export interface TopFoodContribution {
+  name: string
+  kcal: number
+  pctOfTotal: number
+  entries: number
+}
+
+export type NutritionInsightSeverity = 'info' | 'warn' | 'good'
+
+export interface NutritionInsight {
+  id: string
+  severity: NutritionInsightSeverity
+  message: string
+}
+
+export interface NutritionAnalysis {
+  /** End date of the window (YYYY-MM-DD). */
+  date: string
+  /** Window length: 1 (today/selected day), 7, 14, or 30. */
+  days: number
+  rangeStart: string
+  rangeEnd: string
+  daysWithEntries: number
+  entryCount: number
+  totals: MacroTotals
+  /** Totals ÷ days in window (includes zero days). */
+  averagePerDay: MacroTotals
+  /** Compared against daily goals (actual = day total or averagePerDay). */
+  vsGoals: {
+    kcal: MacroVsGoal
+    protein: MacroVsGoal
+    carbs: MacroVsGoal
+    fat: MacroVsGoal
+  }
+  macroBalance: MacroBalance
+  /** Present when days === 1. */
+  mealBreakdown: MealBreakdown | null
+  topFoods: TopFoodContribution[]
+  insights: NutritionInsight[]
+  notes: string[]
+}

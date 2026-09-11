@@ -13,9 +13,11 @@ import type {
   MealType,
   PortionPlan,
   ShoppingListItem,
-  WeightLog
+  WeightLog,
+  NutritionAnalysis
 } from '../shared/types'
 import { buildPortionPlan, type NutritionRef } from './portions'
+import { analyzeNutrition } from './nutritionAnalysis'
 
 const STORE_FILE = 'myhealth-lw.json'
 const DATA_VERSION = 2
@@ -570,6 +572,15 @@ export function applyPortionsToDiary(
   return { added }
 }
 
+
+export function getNutritionAnalysis(date: string, days = 1): NutritionAnalysis {
+  const data = load()
+  ensureShoppingList(data)
+  return analyzeNutrition(data.diaryEntries, data.settings, data.shoppingList, {
+    date,
+    days
+  })
+}
 export function exportData(): AppData {
   return structuredClone(load())
 }
@@ -620,3 +631,5 @@ export async function importDataFromFile(win: BrowserWindow | null): Promise<{ c
     return { cancelled: false, error: err instanceof Error ? err.message : 'Invalid JSON' }
   }
 }
+
+

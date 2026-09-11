@@ -593,3 +593,55 @@ textarea.input {
 .day-plan-day .meal-cards {
   padding: 12px 14px 14px;
 }
+
+/* Nutrition analysis insights */
+.insight-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.insight {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.72);
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.insight-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-top: 6px;
+  flex-shrink: 0;
+  background: var(--sage);
+}
+
+.insight-warn {
+  border-color: rgba(154, 107, 47, 0.35);
+  background: rgba(196, 162, 90, 0.12);
+}
+.insight-warn .insight-dot { background: var(--warn); }
+
+.insight-good {
+  border-color: rgba(47, 111, 78, 0.28);
+  background: rgba(95, 125, 101, 0.1);
+}
+.insight-good .insight-dot { background: var(--good); }
+
+.insight-info .insight-dot { background: var(--sage-2); }
+
+.analysis-notes {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--line);
+}
+.analysis-notes p { margin: 0 0 6px; }

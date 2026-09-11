@@ -6,6 +6,7 @@ import HomePage from './pages/HomePage'
 import DiaryPage from './pages/DiaryPage'
 import FoodsPage from './pages/FoodsPage'
 import ShoppingPage from './pages/ShoppingPage'
+import AnalysisPage from './pages/AnalysisPage'
 import WeightPage from './pages/WeightPage'
 import ExercisePage from './pages/ExercisePage'
 import SettingsPage from './pages/SettingsPage'
@@ -15,6 +16,7 @@ export type AppView =
   | 'diary'
   | 'foods'
   | 'shopping'
+  | 'analysis'
   | 'weight'
   | 'exercise'
   | 'settings'
@@ -24,6 +26,7 @@ const NAV: { id: AppView; label: string }[] = [
   { id: 'diary', label: 'Diary' },
   { id: 'foods', label: 'Foods' },
   { id: 'shopping', label: 'Shopping' },
+  { id: 'analysis', label: 'Analysis' },
   { id: 'weight', label: 'Weight' },
   { id: 'exercise', label: 'Exercise' },
   { id: 'settings', label: 'Settings' }
@@ -71,6 +74,7 @@ export default function App(): React.JSX.Element {
           {view === 'diary' && <DiaryPage onToast={showToast} />}
           {view === 'foods' && <FoodsPage onToast={showToast} />}
           {view === 'shopping' && <ShoppingPage onToast={showToast} />}
+          {view === 'analysis' && <AnalysisPage onToast={showToast} />}
           {view === 'weight' && <WeightPage onToast={showToast} />}
           {view === 'exercise' && <ExercisePage onToast={showToast} />}
           {view === 'settings' && <SettingsPage onToast={showToast} onReset={bump} />}

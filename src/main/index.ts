@@ -18,6 +18,7 @@ import {
   deleteWeight,
   exportDataToFile,
   getDashboard,
+  getNutritionAnalysis,
   getPortionPlan,
   getSettings,
   importDataFromFile,
@@ -87,6 +88,12 @@ function createWindow(): BrowserWindow {
 function registerIpc(getWindow: () => BrowserWindow | null): void {
   ipcMain.handle('dashboard:get', (_e, date: string) => getDashboard(date))
 
+  ipcMain.handle(
+    'nutrition:analyze',
+    (_e, opts: { date?: string; days?: number } = {}) =>
+      getNutritionAnalysis(opts?.date ?? new Date().toISOString().slice(0, 10), opts?.days ?? 1)
+  )
+
   ipcMain.handle('settings:get', () => getSettings())
   ipcMain.handle('settings:update', (_e, patch: Partial<AppSettings>) => updateSettings(patch))
 
@@ -153,7 +160,7 @@ function registerIpc(getWindow: () => BrowserWindow | null): void {
           fat: hit.fat
         })
       } catch {
-        // offline / OFF down — leave unmatched
+        // offline / OFF down â€” leave unmatched
       }
     }
     return getPortionPlan(days, offline)
@@ -228,3 +235,4 @@ if (!gotSingleInstanceLock) {
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
 })
+
