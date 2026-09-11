@@ -54,60 +54,95 @@ type PlateShares = {
   vegetables: number
   carbohydrates: number
   protein: number
-  source: 'diary-foods' | 'macro-approx' | 'healthy-default'
+  source: 'period-macros' | 'healthy-default'
+  vegFrom: 'foods' | 'remainder' | 'none'
+  /** Display-capped % of recommended Healthy Eating 50/25/25 portion. */
+  portionOfRec: { vegetables: number; carbohydrates: number; protein: number }
 }
 
-/** Diary-derived Protein / Carbohydrate / Vegetables kcal shares (never fat as 3rd slice). */
-function derivePlateShares(a: NutritionAnalysis): PlateShares {
-  const buckets: Record<PlateGroup, number> = {
-    vegetables: 0,
-    carbohydrates: 0,
-    protein: 0
-  }
-  let classifiedKcal = 0
-  let topTotal = 0
+/** Healthy Eating 2-1-1 — no stored plateMode in settings. */
+const HEALTHY_PLATE_SHARES = {
+  vegetables: 0.5,
+  carbohydrates: 0.25,
+  protein: 0.25
+} as const
+
+function portionPct(actualEnergy: number, totalKcal: number, targetShare: number): number {
+  const denom = totalKcal * targetShare
+  if (!(denom > 0) || !(actualEnergy >= 0)) return 0
+  return Math.round(Math.min(999, Math.max(0, (actualEnergy / denom) * 100)))
+}
+
+function classifiedVegKcalPerDay(a: NutritionAnalysis): number {
+  let period = 0
   for (const f of a.topFoods) {
-    topTotal += f.kcal
-    const g = classifyFoodGroup(f.name)
-    if (!g) continue
-    buckets[g] += f.kcal
-    classifiedKcal += f.kcal
+    if (classifyFoodGroup(f.name) === 'vegetables') period += Math.max(0, f.kcal)
+  }
+  const days = Math.max(1, a.days || 1)
+  return period / days
+}
+
+function normalizePlateEnergies(
+  vegK: number,
+  carbK: number,
+  protK: number
+): { vegetables: number; carbohydrates: number; protein: number } {
+  const v = Math.max(0, vegK)
+  const c = Math.max(0, carbK)
+  const p = Math.max(0, protK)
+  const sum = v + c + p
+  if (!(sum > 0)) return { vegetables: 50, carbohydrates: 25, protein: 25 }
+  return {
+    vegetables: (v / sum) * 100,
+    carbohydrates: (c / sum) * 100,
+    protein: (p / sum) * 100
+  }
+}
+
+/**
+ * Plate slices from period consumption (never fat as a 3rd slice).
+ * Protein/carb = macro grams x 4; veg = classified topFoods kcal or non-macro remainder.
+ * No fake vegetable floor.
+ */
+function derivePlateShares(a: NutritionAnalysis): PlateShares {
+  const totalKcal = Math.max(
+    0,
+    a.vsGoals.kcal.actual || a.averagePerDay.kcal || a.totals.kcal || 0
+  )
+  const proteinK = Math.max(0, (a.vsGoals.protein.actual || 0) * 4)
+  const carbK = Math.max(0, (a.vsGoals.carbs.actual || 0) * 4)
+  const fatK = Math.max(0, (a.vsGoals.fat.actual || 0) * 9)
+
+  const vegFoods = classifiedVegKcalPerDay(a)
+  const remainder = Math.max(0, totalKcal - proteinK - carbK - fatK)
+  const vegWeak = !(vegFoods > 1)
+  const vegK = vegWeak ? remainder : vegFoods
+  const vegFrom: PlateShares['vegFrom'] = vegWeak ? 'remainder' : 'foods'
+
+  const consumedSum = vegK + carbK + proteinK
+  const portionOfRec = {
+    vegetables: portionPct(vegK, totalKcal, HEALTHY_PLATE_SHARES.vegetables),
+    carbohydrates: portionPct(carbK, totalKcal, HEALTHY_PLATE_SHARES.carbohydrates),
+    protein: portionPct(proteinK, totalKcal, HEALTHY_PLATE_SHARES.protein)
   }
 
-  const thin =
-    a.topFoods.length === 0 ||
-    topTotal <= 0 ||
-    classifiedKcal < topTotal * 0.35 ||
-    classifiedKcal < 50
-
-  if (!thin && classifiedKcal > 0) {
+  if (!(consumedSum > 0.5)) {
     return {
-      vegetables: (buckets.vegetables / classifiedKcal) * 100,
-      carbohydrates: (buckets.carbohydrates / classifiedKcal) * 100,
-      protein: (buckets.protein / classifiedKcal) * 100,
-      source: 'diary-foods'
+      vegetables: 50,
+      carbohydrates: 25,
+      protein: 25,
+      source: 'healthy-default',
+      vegFrom: 'none',
+      portionOfRec: totalKcal > 0.5 ? portionOfRec : { vegetables: 0, carbohydrates: 0, protein: 0 }
     }
   }
 
-  const totalKcal = a.vsGoals.kcal.actual || a.averagePerDay.kcal || a.totals.kcal
-  if (totalKcal > 0) {
-    const protK = Math.max(0, a.vsGoals.protein.actual * 4)
-    const carbK = Math.max(0, a.vsGoals.carbs.actual * 4)
-    // Third slice = leftover after protein+carb macros (veg-like / plant remainder). Do NOT label as fat.
-    const leftover = Math.max(0, totalKcal - protK - carbK)
-    const vegK = Math.max(leftover, totalKcal * 0.2)
-    const sum = protK + carbK + vegK
-    if (sum > 0) {
-      return {
-        vegetables: (vegK / sum) * 100,
-        carbohydrates: (carbK / sum) * 100,
-        protein: (protK / sum) * 100,
-        source: 'macro-approx'
-      }
-    }
+  return {
+    ...normalizePlateEnergies(vegK, carbK, proteinK),
+    source: 'period-macros',
+    vegFrom,
+    portionOfRec
   }
-
-  return { vegetables: 50, carbohydrates: 25, protein: 25, source: 'healthy-default' }
 }
 
 function polar(cx: number, cy: number, r: number, angleDeg: number): [number, number] {
@@ -140,19 +175,19 @@ type PieSlice = { label: string; pct: number; color: string; textColor?: string 
 function buildPieSvg(
   title: string,
   slices: PieSlice[],
-  footnote: string,
+  footnote: string | string[],
   ariaLabel: string
 ): string {
   const positive = slices.map((s) => ({ ...s, pct: Math.max(0, s.pct) }))
   const sum = positive.reduce((a, s) => a + s.pct, 0)
-  // Normalize to 100 when we have any mass; otherwise empty ring
+  // Normalize to 100 before drawing so slices match legend %.
   const norm =
     sum > 0
       ? positive.map((s) => ({ ...s, pct: (s.pct / sum) * 100 }))
       : positive.map((s) => ({ ...s, pct: 0 }))
 
   const cx = 110
-  const cy = 110
+  const cy = 105
   const r = 88
   let cursor = 0
   const paths: string[] = []
@@ -160,6 +195,7 @@ function buildPieSvg(
     const start = cursor
     const end = cursor + s.pct
     cursor = end
+    if (!(s.pct > 0.05)) continue
     const d = pieSlicePath(cx, cy, r, start, end)
     if (!d) continue
     paths.push(`<path d="${d}" fill="${s.color}"/>`)
@@ -170,7 +206,7 @@ function buildPieSvg(
 
   const legend = norm
     .map((s, i) => {
-      const y = 40 + i * 28
+      const y = 36 + i * 28
       return `<rect x="210" y="${y}" width="14" height="14" fill="${s.color}" rx="2"/>
       <text x="230" y="${y + 12}" fill="${s.textColor ?? '#2c3228'}">${esc(s.label)} ${Math.round(s.pct)}%</text>`
     })
@@ -180,17 +216,24 @@ function buildPieSvg(
     ? `<div class="chart-title">${esc(title)}</div>`
     : ''
 
+  const notes = (Array.isArray(footnote) ? footnote : [footnote])
+    .map((n) => n.trim())
+    .filter((n) => n.length > 0)
+  const noteHtml = notes
+    .map((n) => `<p class="note chart-footnote">${esc(n)}</p>`)
+    .join('\n  ')
+
   return `<div class="chart-block">
   ${titleBlock}
-  <svg viewBox="0 0 320 230" width="320" height="230" role="img" aria-label="${esc(ariaLabel)}">
-    <rect width="320" height="230" fill="#f5f0e6"/>
+  <svg viewBox="0 0 320 210" width="320" height="210" role="img" aria-label="${esc(ariaLabel)}">
+    <rect width="320" height="210" fill="#f5f0e6"/>
     ${paths.join('\n    ')}
     <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#c9d4c4" stroke-width="3"/>
     <g font-family="Segoe UI, sans-serif" font-size="11">
       ${legend}
     </g>
-    <text x="10" y="218" fill="#6b7a62" font-size="9" font-family="Segoe UI, sans-serif">${esc(footnote)}</text>
   </svg>
+  ${noteHtml}
 </div>`
 }
 
@@ -198,12 +241,13 @@ function buildPlatePieSvg(shares: PlateShares): string {
   const veg = Math.max(0, shares.vegetables)
   const carb = Math.max(0, shares.carbohydrates)
   const prot = Math.max(0, shares.protein)
-  const sourceNote =
-    shares.source === 'diary-foods'
-      ? 'From diary top foods (name classification)'
-      : shares.source === 'macro-approx'
-        ? 'Approx. from protein/carb macros + veg-like remainder'
-        : 'Healthy plate default 50 / 25 / 25'
+  const footnotes =
+    shares.source === 'healthy-default'
+      ? ['Healthy plate default 50 / 25 / 25']
+      : [
+          'Plate shares from period macros (veg from foods or non-macro remainder)',
+          `Of recommended Healthy Eating 50/25/25: veg ~${shares.portionOfRec.vegetables}% · carb ~${shares.portionOfRec.carbohydrates}% · protein ~${shares.portionOfRec.protein}%`
+        ]
 
   return buildPieSvg(
     '',
@@ -212,7 +256,7 @@ function buildPlatePieSvg(shares: PlateShares): string {
       { label: 'Carbohydrate', pct: carb, color: '#e8c47a', textColor: '#5a4020' },
       { label: 'Protein', pct: prot, color: '#c47a6a', textColor: '#5a2a22' }
     ],
-    sourceNote,
+    footnotes,
     'Plate proportion pie'
   )
 }
@@ -592,6 +636,7 @@ function buildAnalysisHtml(
   details.compact-backup { margin-top: 6px; color: #5f6b5a; font-size: 9.5pt; }
   details.compact-backup summary { cursor: pointer; color: #2f6f4e; }
   svg { display: block; max-width: 100%; }
+  .chart-footnote { margin: 4px 0 0; max-width: 320px; }
   .disclaimer { font-size: 8.5pt; color: #7a8674; margin-top: 8px; }
 </style>
 </head>
@@ -610,7 +655,7 @@ function buildAnalysisHtml(
   <p class="sub">Period totals: ${fmt(a.totals.kcal, 'kcal')} · Protein ${fmt(a.totals.protein, 'g')} · Carbohydrate ${fmt(a.totals.carbs, 'g')} · Fat ${fmt(a.totals.fat, 'g')} · ${a.entryCount} entries</p>
 
   <h2>Plate proportion</h2>
-  <p class="sub">Protein / Carbohydrate / Vegetables (not fat). Prefer diary food classification.</p>
+  <p class="sub">Protein / Carbohydrate / Vegetables from amount consumed in the period (not fat). Pie is consumed mix; footnote shows % of recommended Healthy Eating 50/25/25 portions.</p>
   <div class="charts-row">${platePie}</div>
 
   <h2>Vs goals</h2>
