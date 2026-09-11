@@ -43,6 +43,42 @@ function formatMealShort(meal: string): string {
   return meal.charAt(0).toUpperCase() + meal.slice(1)
 }
 
+function UnitSelect(props: {
+  value: string
+  custom: string
+  onSelect: (v: string) => void
+  onCustom: (v: string) => void
+  onCommit?: () => void
+  compact?: boolean
+}): React.JSX.Element {
+  const showCustom = props.value === OTHER_UNIT
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <select
+        className={props.compact ? 'input compact-input' : 'input'}
+        value={props.value}
+        onChange={(e) => props.onSelect(e.target.value)}
+        onBlur={() => props.onCommit?.()}
+      >
+        {SHOPPING_UNITS.map((u) => (
+          <option key={u} value={u}>
+            {u}
+          </option>
+        ))}
+      </select>
+      {showCustom && (
+        <input
+          className={props.compact ? 'input compact-input' : 'input'}
+          value={props.custom}
+          onChange={(e) => props.onCustom(e.target.value)}
+          onBlur={() => props.onCommit?.()}
+          placeholder="custom unit"
+        />
+      )}
+    </div>
+  )
+}
+
 export default function ShoppingPage({ onToast }: Props): React.JSX.Element {
   const [items, setItems] = useState<ShoppingListItem[]>([])
   const [foods, setFoods] = useState<Food[]>([])
@@ -81,28 +117,43 @@ export default function ShoppingPage({ onToast }: Props): React.JSX.Element {
       onToast('Name is required')
       return
     }
-    await window.api.addShopping({
-      name: name.trim(),
-      quantity: qty ? Number(qty) : undefined,
-      unit: resolvedUnit,
-      foodId: foodId || undefined
-    })
-    setName('')
-    setQty('')
-    setUnit(DEFAULT_UNIT)
-    setCustomUnit('')
-    setFoodId('')
-    onToast('Added to shopping list')
-    await reload()
+    try {
+      const qtyNum = qty.trim() === '' ? undefined : Number(qty)
+      const quantity =
+        qtyNum === undefined ? undefined : Number.isFinite(qtyNum) ? qtyNum : undefined
+      const created = await window.api.addShopping({
+        name: name.trim(),
+        quantity,
+        unit: resolvedUnit,
+        foodId: foodId || undefined
+      })
+      setItems((prev) => [created, ...prev])
+      setName('')
+      setQty('')
+      setUnit(DEFAULT_UNIT)
+      setCustomUnit('')
+      setFoodId('')
+      onToast('Added to shopping list')
+      await reload()
+    } catch (err) {
+      onToast(err instanceof Error ? err.message : 'Failed to add item')
+    }
   }
 
   async function addPaste(): Promise<void> {
     const lines = paste.split(/\r?\n/)
-    const res = await window.api.addShoppingMany(lines)
-    setPaste('')
-    setShowPaste(false)
-    onToast(`Added ${res.created} items`)
-    await reload()
+    try {
+      const res = await window.api.addShoppingMany(lines)
+      if (res.items?.length) {
+        setItems((prev) => [...res.items, ...prev])
+      }
+      setPaste('')
+      setShowPaste(false)
+      onToast(`Added ${res.created} items`)
+      await reload()
+    } catch (err) {
+      onToast(err instanceof Error ? err.message : 'Failed to add items')
+    }
   }
 
   async function toggleChecked(item: ShoppingListItem): Promise<void> {
@@ -196,42 +247,6 @@ export default function ShoppingPage({ onToast }: Props): React.JSX.Element {
     } finally {
       setApplying(false)
     }
-  }
-
-  function UnitSelect(props: {
-    value: string
-    custom: string
-    onSelect: (v: string) => void
-    onCustom: (v: string) => void
-    onCommit?: () => void
-    compact?: boolean
-  }): React.JSX.Element {
-    const showCustom = props.value === OTHER_UNIT
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        <select
-          className={props.compact ? 'input compact-input' : 'input'}
-          value={props.value}
-          onChange={(e) => props.onSelect(e.target.value)}
-          onBlur={() => props.onCommit?.()}
-        >
-          {SHOPPING_UNITS.map((u) => (
-            <option key={u} value={u}>
-              {u}
-            </option>
-          ))}
-        </select>
-        {showCustom && (
-          <input
-            className={props.compact ? 'input compact-input' : 'input'}
-            value={props.custom}
-            onChange={(e) => props.onCustom(e.target.value)}
-            onBlur={() => props.onCommit?.()}
-            placeholder="custom unit"
-          />
-        )}
-      </div>
-    )
   }
 
   return (

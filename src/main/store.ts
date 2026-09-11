@@ -83,6 +83,12 @@ function dataPath(): string {
 
 let cache: AppData | null = null
 
+/** Ensure shoppingList is always a real array before any mutation. */
+function ensureShoppingList(data: AppData): ShoppingListItem[] {
+  if (!Array.isArray(data.shoppingList)) data.shoppingList = []
+  return data.shoppingList
+}
+
 function load(): AppData {
   if (cache) return cache
   const path = dataPath()
@@ -92,7 +98,9 @@ function load(): AppData {
     return cache
   }
   try {
-    const raw = JSON.parse(readFileSync(path, 'utf8')) as AppData
+    const raw = JSON.parse(readFileSync(path, 'utf8')) as Partial<AppData> & Record<string, unknown>
+    const hadShoppingList = Array.isArray(raw.shoppingList)
+    const rawVersion = typeof raw.version === 'number' ? raw.version : 0
     cache = {
       version: DATA_VERSION,
       settings: { ...defaultSettings(), ...(raw.settings ?? {}) },
@@ -100,7 +108,11 @@ function load(): AppData {
       diaryEntries: Array.isArray(raw.diaryEntries) ? raw.diaryEntries : [],
       weightLogs: Array.isArray(raw.weightLogs) ? raw.weightLogs : [],
       exercises: Array.isArray(raw.exercises) ? raw.exercises : [],
-      shoppingList: Array.isArray(raw.shoppingList) ? raw.shoppingList : []
+      shoppingList: hadShoppingList ? (raw.shoppingList as ShoppingListItem[]) : []
+    }
+    // Persist migration when shoppingList was missing or version was stale.
+    if (!hadShoppingList || rawVersion < DATA_VERSION) {
+      save(cache)
     }
   } catch {
     cache = emptyData()
@@ -110,6 +122,8 @@ function load(): AppData {
 }
 
 function save(data: AppData): void {
+  if (!Array.isArray(data.shoppingList)) data.shoppingList = []
+  data.version = DATA_VERSION
   cache = data
   writeFileSync(dataPath(), JSON.stringify(data, null, 2), 'utf8')
 }
@@ -381,10 +395,10 @@ export function getDashboard(date: string): DashboardSummary {
   }
 }
 
-
-
 export function listShopping(): ShoppingListItem[] {
-  return [...load().shoppingList].sort((a, b) => {
+  const data = load()
+  ensureShoppingList(data)
+  return [...data.shoppingList].sort((a, b) => {
     const ac = a.checked ? 1 : 0
     const bc = b.checked ? 1 : 0
     if (ac !== bc) return ac - bc
@@ -396,20 +410,26 @@ export function addShopping(
   input: { name: string; quantity?: number; unit?: string; notes?: string; foodId?: string }
 ): ShoppingListItem {
   const data = load()
+  ensureShoppingList(data)
+  const name = (input.name ?? '').trim()
+  if (!name) throw new Error('Name is required')
+
+  let quantity: number | undefined
+  if (input.quantity !== undefined && input.quantity !== null) {
+    const q = Number(input.quantity)
+    quantity = Number.isFinite(q) ? q : undefined
+  }
+
   const item: ShoppingListItem = {
     id: randomUUID(),
-    name: input.name.trim(),
-    quantity:
-      input.quantity !== undefined && input.quantity !== null
-        ? Number(input.quantity)
-        : undefined,
+    name,
+    quantity,
     unit: input.unit?.trim() || undefined,
     notes: input.notes?.trim() || undefined,
-    foodId: input.foodId,
+    foodId: input.foodId || undefined,
     checked: false,
     createdAt: new Date().toISOString()
   }
-  if (!item.name) throw new Error('Name is required')
   data.shoppingList.push(item)
   save(data)
   return item
@@ -429,15 +449,29 @@ export function updateShopping(
   patch: Partial<Omit<ShoppingListItem, 'id' | 'createdAt'>>
 ): ShoppingListItem | null {
   const data = load()
+  ensureShoppingList(data)
   const idx = data.shoppingList.findIndex((i) => i.id === id)
   if (idx < 0) return null
   const cur = data.shoppingList[idx]
+
+  let quantity = cur.quantity
+  if (patch.quantity !== undefined) {
+    if (patch.quantity === null) {
+      quantity = undefined
+    } else {
+      const q = Number(patch.quantity)
+      quantity = Number.isFinite(q) ? q : undefined
+    }
+  }
+
   data.shoppingList[idx] = {
     ...cur,
     ...patch,
     name: patch.name !== undefined ? patch.name.trim() : cur.name,
+    quantity,
     unit: patch.unit !== undefined ? patch.unit.trim() || undefined : cur.unit,
-    notes: patch.notes !== undefined ? patch.notes.trim() || undefined : cur.notes
+    notes: patch.notes !== undefined ? patch.notes.trim() || undefined : cur.notes,
+    foodId: patch.foodId !== undefined ? patch.foodId || undefined : cur.foodId
   }
   save(data)
   return data.shoppingList[idx]
@@ -445,6 +479,7 @@ export function updateShopping(
 
 export function deleteShopping(id: string): { deleted: boolean } {
   const data = load()
+  ensureShoppingList(data)
   const before = data.shoppingList.length
   data.shoppingList = data.shoppingList.filter((i) => i.id !== id)
   save(data)
@@ -453,6 +488,7 @@ export function deleteShopping(id: string): { deleted: boolean } {
 
 export function clearCheckedShopping(): { removed: number } {
   const data = load()
+  ensureShoppingList(data)
   const before = data.shoppingList.length
   data.shoppingList = data.shoppingList.filter((i) => !i.checked)
   save(data)
@@ -464,6 +500,7 @@ export function getPortionPlan(
   offlineNutrition?: Map<string, NutritionRef>
 ): PortionPlan {
   const data = load()
+  ensureShoppingList(data)
   return buildPortionPlan(
     data.shoppingList,
     data.foods,
