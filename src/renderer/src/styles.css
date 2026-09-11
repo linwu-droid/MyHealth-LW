@@ -744,9 +744,55 @@ tr.detail-row > td {
 }
 .plate-visual-body {
   display: flex;
-  flex-wrap: wrap;
-  gap: 20px;
+  flex-direction: column;
   align-items: center;
+  gap: 16px;
+}
+.plate-chart-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 12px;
+}
+.plate-chart-btn:focus-visible {
+  outline: 2px solid var(--accent, #2f6f4e);
+  outline-offset: 4px;
+}
+.plate-chart-btn svg {
+  display: block;
+  pointer-events: none;
+}
+.plate-chart-hint {
+  user-select: none;
+}
+.plate-food-columns {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px 24px;
+  width: 100%;
+  max-width: 720px;
+}
+.plate-food-col strong {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.95rem;
+}
+.plate-food-list {
+  margin: 0;
+  padding-left: 1.1rem;
+  list-style: disc;
+}
+.plate-food-list li {
+  font-size: 0.88rem;
+  color: var(--ink, #3a3428);
+  margin-bottom: 3px;
+  line-height: 1.35;
 }
 .plate-visual-legend {
   display: flex;
@@ -768,25 +814,61 @@ tr.detail-row > td {
   min-width: 150px;
   justify-content: center;
 }
-.plate-generate-row {
+.plate-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: rgba(40, 36, 28, 0.55);
   display: flex;
   align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
+  justify-content: center;
+  padding: 24px;
 }
-.plate-preview-wrap {
+.plate-modal {
+  background: #fffdf8;
+  border: 1px solid #d8d2c4;
+  border-radius: 14px;
+  box-shadow: 0 12px 40px rgba(40, 36, 28, 0.28);
+  max-width: 600px;
+  width: 100%;
+  padding: 16px 18px 18px;
+}
+.plate-modal-header {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 6px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
 }
-.plate-preview-img {
-  width: 200px;
-  height: 200px;
+.plate-modal-header h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+.plate-modal-body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+}
+.plate-modal-img {
+  width: min(520px, 100%);
+  height: auto;
+  max-height: 560px;
   object-fit: contain;
-  border: 2px solid #e8dfd0;
   border-radius: 12px;
+  border: 2px solid #e8dfd0;
   background: #f5f0e6;
+}
+.plate-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 14px;
+}
+@media (max-width: 640px) {
+  .plate-food-columns {
+    grid-template-columns: 1fr;
+  }
 }
 .btn.link-btn {
   background: transparent;

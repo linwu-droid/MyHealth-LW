@@ -78,11 +78,11 @@ function pushUnique(list: string[], name: string, max: number): void {
   list.push(trimmed)
 }
 
-/** Collect food labels from the plan and optional shopping names; max ~5 per group. */
+/** Collect food labels from the plan and optional shopping names (all by default). */
 function collectLabels(
   plan: PortionPlan | null,
   shoppingNames?: string[],
-  maxPerGroup = 5
+  maxPerGroup = 100
 ): PlateShare['labels'] {
   const labels = {
     vegetables: [] as string[],
@@ -381,11 +381,22 @@ export default function PlateVisual({
   const [generating, setGenerating] = useState(false)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [modalOpen, setModalOpen] = useState(false)
 
   const shoppingKey = (shoppingNames ?? []).join('\0')
   useEffect(() => {
     setPreviewUrl(null)
+    setModalOpen(false)
   }, [mode, plan, shoppingKey])
+
+  useEffect(() => {
+    if (!modalOpen) return
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') setModalOpen(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [modalOpen])
 
   const vegPct = share.vegetables
   const carbPct = share.carbohydrates
@@ -628,18 +639,28 @@ export default function PlateVisual({
     return { dataUrl: canvas.toDataURL('image/png'), imageCount: 0 }
   }
 
-  async function showPlateImage(): Promise<void> {
+  async function openPlateModal(): Promise<void> {
+    setModalOpen(true)
+    if (previewUrl || generating) return
     setGenerating(true)
     try {
       const { dataUrl, imageCount } = await renderCanvasPlate()
       setPreviewUrl(dataUrl)
-      if (imageCount > 0) onToast(`Plate image shown (${imageCount} food photo${imageCount === 1 ? '' : 's'})`)
-      else onToast('Plate image shown (text labels — photos unavailable)')
+      if (imageCount > 0) {
+        onToast(`Plate image ready (${imageCount} food photo${imageCount === 1 ? '' : 's'})`)
+      } else {
+        onToast('Plate image ready (text labels — photos unavailable)')
+      }
     } catch (err) {
       onToast(err instanceof Error ? err.message : 'Could not generate plate image')
+      setModalOpen(false)
     } finally {
       setGenerating(false)
     }
+  }
+
+  function closePlateModal(): void {
+    setModalOpen(false)
   }
 
   async function savePng(): Promise<void> {
@@ -673,6 +694,31 @@ export default function PlateVisual({
     }
   }
 
+  const foodColumns: { group: FoodGroup; title: string; color: string; items: string[] }[] = [
+    {
+      group: 'vegetables',
+      title: `Vegetables ~${vegPct}%`,
+      color: '#2f6f4e',
+      items: share.labels.vegetables.length
+        ? share.labels.vegetables
+        : DEFAULT_LABELS.vegetables
+    },
+    {
+      group: 'carbohydrates',
+      title: `Carbohydrates ~${carbPct}%`,
+      color: '#c47a2c',
+      items: share.labels.carbohydrates.length
+        ? share.labels.carbohydrates
+        : DEFAULT_LABELS.carbohydrates
+    },
+    {
+      group: 'protein',
+      title: `Protein ~${protPct}%`,
+      color: '#8b3a3a',
+      items: share.labels.protein.length ? share.labels.protein : DEFAULT_LABELS.protein
+    }
+  ]
+
   return (
     <div className="plate-visual">
       <div className="portion-section-header">
@@ -698,125 +744,152 @@ export default function PlateVisual({
         ))}
       </div>
       <div className="plate-visual-body">
-        <svg
-          viewBox="0 0 360 360"
-          width="280"
-          height="280"
-          role="img"
-          aria-label={`Plate: vegetables ${vegPct}%, carbohydrates ${carbPct}%, protein ${protPct}%`}
+        <button
+          type="button"
+          className="plate-chart-btn"
+          onClick={() => void openPlateModal()}
+          aria-label="Enlarge plate image"
+          title="Click to enlarge plate"
         >
-          <rect width="360" height="360" fill="#f5f0e6" />
-          <circle cx="180" cy="180" r="150" fill="#fffdf8" stroke="#c9d4c4" strokeWidth="10" />
-          <circle cx="180" cy="180" r="140" fill="#f8f4ec" />
-          {slices.map((s) => (
-            <path key={s.group} d={s.path} fill={GROUP_META[s.group].fill} opacity="0.92" />
-          ))}
-          <line x1="180" y1="180" x2={d0x} y2={d0y} stroke="#f5f0e6" strokeWidth="3" />
-          <line x1="180" y1="180" x2={d1x} y2={d1y} stroke="#f5f0e6" strokeWidth="3" />
-          <line x1="180" y1="180" x2={d2x} y2={d2y} stroke="#f5f0e6" strokeWidth="3" />
-          {slices.map((s) => {
-            const foods = s.foods.slice(0, 4)
-            const titleY = s.ly - 6 - foods.length * 5
-            return (
-              <g key={`${s.group}-labels`}>
-                <text
-                  x={s.lx}
-                  y={titleY}
-                  textAnchor="middle"
-                  fill={GROUP_META[s.group].text}
-                  fontSize="12"
-                  fontFamily="Segoe UI, sans-serif"
-                  fontWeight="650"
-                >
-                  {GROUP_META[s.group].short}
-                </text>
-                <text
-                  x={s.lx}
-                  y={titleY + 13}
-                  textAnchor="middle"
-                  fill={GROUP_META[s.group].text}
-                  fontSize="11"
-                  fontFamily="Segoe UI, sans-serif"
-                >
-                  {s.pct}%
-                </text>
-                {foods.map((name, i) => (
+          <svg
+            viewBox="0 0 360 360"
+            width="280"
+            height="280"
+            role="img"
+            aria-hidden={true}
+          >
+            <rect width="360" height="360" fill="#f5f0e6" />
+            <circle cx="180" cy="180" r="150" fill="#fffdf8" stroke="#c9d4c4" strokeWidth="10" />
+            <circle cx="180" cy="180" r="140" fill="#f8f4ec" />
+            {slices.map((s) => (
+              <path key={s.group} d={s.path} fill={GROUP_META[s.group].fill} opacity="0.92" />
+            ))}
+            <line x1="180" y1="180" x2={d0x} y2={d0y} stroke="#f5f0e6" strokeWidth="3" />
+            <line x1="180" y1="180" x2={d1x} y2={d1y} stroke="#f5f0e6" strokeWidth="3" />
+            <line x1="180" y1="180" x2={d2x} y2={d2y} stroke="#f5f0e6" strokeWidth="3" />
+            {slices.map((s) => {
+              const foods = s.foods.slice(0, 4)
+              const titleY = s.ly - 6 - foods.length * 5
+              return (
+                <g key={`${s.group}-labels`}>
                   <text
-                    key={`${s.group}-${name}-${i}`}
                     x={s.lx}
-                    y={titleY + 26 + i * 11}
+                    y={titleY}
                     textAnchor="middle"
                     fill={GROUP_META[s.group].text}
-                    fontSize="9"
+                    fontSize="12"
                     fontFamily="Segoe UI, sans-serif"
-                    opacity="0.95"
+                    fontWeight="650"
                   >
-                    {shortName(name, 15)}
+                    {GROUP_META[s.group].short}
                   </text>
-                ))}
-              </g>
-            )
-          })}
-          <text x="180" y="348" textAnchor="middle" fill="#6b7a62" fontSize="10" fontFamily="Segoe UI, sans-serif">
-            MyHealth L.W · RevoCon · L.W.
-          </text>
-        </svg>
-        <div className="plate-visual-legend">
-          <div>
-            <strong style={{ color: '#2f6f4e' }}>Vegetables ~{vegPct}%</strong>
-            <div className="muted small">
-              {share.labels.vegetables.length
-                ? share.labels.vegetables.join(' · ')
-                : 'Leafy greens, salad, mixed veg'}
-            </div>
-          </div>
-          <div>
-            <strong style={{ color: '#c47a2c' }}>Carbohydrates ~{carbPct}%</strong>
-            <div className="muted small">
-              {share.labels.carbohydrates.length
-                ? share.labels.carbohydrates.join(' · ')
-                : 'Rice, potato, pasta, grains'}
-            </div>
-          </div>
-          <div>
-            <strong style={{ color: '#8b3a3a' }}>Protein ~{protPct}%</strong>
-            <div className="muted small">
-              {share.labels.protein.length
-                ? share.labels.protein.join(' · ')
-                : 'Lean meat, fish, eggs, legumes'}
-            </div>
-          </div>
-          <div className="plate-generate-row">
-            <button
-              type="button"
-              className="btn primary"
-              disabled={generating}
-              onClick={() => void showPlateImage()}
+                  <text
+                    x={s.lx}
+                    y={titleY + 13}
+                    textAnchor="middle"
+                    fill={GROUP_META[s.group].text}
+                    fontSize="11"
+                    fontFamily="Segoe UI, sans-serif"
+                  >
+                    {s.pct}%
+                  </text>
+                  {foods.map((name, i) => (
+                    <text
+                      key={`${s.group}-${name}-${i}`}
+                      x={s.lx}
+                      y={titleY + 26 + i * 11}
+                      textAnchor="middle"
+                      fill={GROUP_META[s.group].text}
+                      fontSize="9"
+                      fontFamily="Segoe UI, sans-serif"
+                      opacity="0.95"
+                    >
+                      {shortName(name, 15)}
+                    </text>
+                  ))}
+                </g>
+              )
+            })}
+            <text
+              x="180"
+              y="348"
+              textAnchor="middle"
+              fill="#6b7a62"
+              fontSize="10"
+              fontFamily="Segoe UI, sans-serif"
             >
-              {generating ? 'Generating…' : previewUrl ? 'Refresh plate image' : 'Show plate image'}
-            </button>
-            {previewUrl && (
-              <div className="plate-preview-wrap">
-                <img
-                  className="plate-preview-img"
-                  src={previewUrl}
-                  alt="Generated plate preview"
-                  width={200}
-                  height={200}
-                />
-                <button
-                  type="button"
-                  className="btn link-btn"
-                  disabled={saving}
-                  onClick={() => void savePng()}
-                >
-                  {saving ? 'Saving…' : 'Save…'}
-                </button>
-              </div>
-            )}
-          </div>
+              MyHealth L.W · RevoCon · L.W.
+            </text>
+          </svg>
+          <span className="plate-chart-hint muted small">
+            {generating && modalOpen ? 'Generating…' : 'Click chart to enlarge'}
+          </span>
+        </button>
+
+        <div className="plate-food-columns" aria-label="Foods by plate group">
+          {foodColumns.map((col) => (
+            <div key={col.group} className="plate-food-col">
+              <strong style={{ color: col.color }}>{col.title}</strong>
+              <ul className="plate-food-list">
+                {col.items.map((name) => (
+                  <li key={`${col.group}-${name}`}>{name}</li>
+                ))}
+              </ul>
+            </div>
+          ))}
         </div>
       </div>
+
+      {modalOpen && (
+        <div
+          className="plate-modal-backdrop"
+          role="presentation"
+          onClick={closePlateModal}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') closePlateModal()
+          }}
+        >
+          <div
+            className="plate-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Enlarged plate image"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="plate-modal-header">
+              <h3>Recommended plate</h3>
+              <button type="button" className="btn" onClick={closePlateModal}>
+                Close
+              </button>
+            </div>
+            <div className="plate-modal-body">
+              {generating && !previewUrl ? (
+                <p className="muted">Generating plate image…</p>
+              ) : previewUrl ? (
+                <img
+                  className="plate-modal-img"
+                  src={previewUrl}
+                  alt={`Plate: vegetables ${vegPct}%, carbohydrates ${carbPct}%, protein ${protPct}%`}
+                  width={520}
+                  height={520}
+                />
+              ) : (
+                <p className="muted">Could not load plate image.</p>
+              )}
+            </div>
+            <div className="plate-modal-actions">
+              <button
+                type="button"
+                className="btn primary"
+                disabled={saving || generating || !previewUrl}
+                onClick={() => void savePng()}
+              >
+                {saving ? 'Saving…' : 'Save…'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import type { MacroVsGoal, MealType, MineralKey, NutritionAnalysis } from '../../../shared/types'
 import { MINERAL_KEYS, MINERAL_META } from '../../../shared/minerals'
-import { formatMlExact, waterProgressPct, waterTip } from '../../../shared/water'
+import { formatMlExact, waterTip } from '../../../shared/water'
 import { todayIso } from '../lib/format'
 
 type Props = { onToast: (msg: string) => void }
@@ -44,14 +44,21 @@ function formatAmt(n: number, unit: string): string {
   return String(Math.round(n))
 }
 
+/** Lighter same-hue track behind the solid fill (hex + alpha, else cream). */
+function trackTint(color: string): string {
+  if (/^#[0-9a-fA-F]{6}$/.test(color)) return color + '33'
+  return '#ebe4d6'
+}
+
 function GoalBar(props: {
   label: string
   unit: string
   vs: MacroVsGoal
   color: string
 }): React.JSX.Element {
-  const pct = Math.min(100, Math.max(0, props.vs.pctOfGoal))
-  const over = props.vs.remaining < 0
+  const pctOfGoal = props.vs.pctOfGoal
+  const over = pctOfGoal > 100 || props.vs.remaining < 0
+  const fillPct = Math.min(100, Math.max(0, pctOfGoal))
   return (
     <div className="macro-bar">
       <div className="macro-bar-head">
@@ -60,18 +67,18 @@ function GoalBar(props: {
           {formatAmt(props.vs.actual, props.unit)} / {formatAmt(props.vs.goal, props.unit)}{' '}
           {props.unit}
           <span className={`muted small`} style={{ marginLeft: 8 }}>
-            {Math.round(props.vs.pctOfGoal)}%
+            {Math.round(pctOfGoal)}%
             {over
               ? ` · +${formatAmt(-props.vs.remaining, props.unit)} over`
               : ` · ${formatAmt(props.vs.remaining, props.unit)} left`}
           </span>
         </span>
       </div>
-      <div className="macro-track">
+      <div className="macro-track" style={{ background: trackTint(props.color) }}>
         <div
           className="macro-fill"
           style={{
-            width: `${pct}%`,
+            width: `${fillPct}%`,
             background: over ? 'var(--danger)' : props.color
           }}
         />
@@ -346,16 +353,6 @@ export default function AnalysisPage({ onToast }: Props): React.JSX.Element {
               }}
               color="#4a7a8a"
             />
-            <div className="progress-track" style={{ marginTop: 8, marginBottom: 8 }}>
-              <div
-                className="progress-fill"
-                style={{
-                  width: waterProgressPct(waterActualMl, waterGoalMl) + '%',
-                  background:
-                    waterActualMl > waterGoalMl * 1.3 ? 'var(--danger)' : '#4a7a8a'
-                }}
-              />
-            </div>
             <p className="muted small" style={{ marginBottom: 0 }}>
               {waterTip(waterActualMl, waterGoalMl).message}
             </p>
