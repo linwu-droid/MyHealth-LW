@@ -36,6 +36,9 @@ function defaultSettings(): AppSettings {
     carbsGoalG: 200,
     fatGoalG: 65,
     weightUnit: 'kg',
+    sex: '',
+    weightGoalKg: undefined,
+    weightStartKg: undefined,
     // AU/NZ NRV / WHO-ish adult defaults — see shared/minerals.ts
     mineralGoals: defaultMineralGoals()
   }
@@ -103,9 +106,21 @@ function seedFoods(): Food[] {
 function migrateSettings(raw: Partial<AppSettings> | undefined): AppSettings {
   const base = defaultSettings()
   const incoming = raw ?? {}
+  const heightRaw = Number(incoming.heightCm)
+  const goalRaw = Number(incoming.weightGoalKg)
+  const startRaw = Number(incoming.weightStartKg)
+  const sexRaw = incoming.sex
+  const sex =
+    sexRaw === 'female' || sexRaw === 'male' || sexRaw === 'other' || sexRaw === ''
+      ? sexRaw
+      : ''
   return {
     ...base,
     ...incoming,
+    heightCm: heightRaw > 0 ? heightRaw : undefined,
+    weightGoalKg: goalRaw > 0 ? goalRaw : undefined,
+    weightStartKg: startRaw > 0 ? startRaw : undefined,
+    sex,
     mineralGoals: {
       ...defaultMineralGoals(),
       ...(incoming.mineralGoals ?? {})

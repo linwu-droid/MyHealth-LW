@@ -1,7 +1,9 @@
 import type React from 'react'
 import { useEffect, useState } from 'react'
 import type { AppSettings, MineralKey, WeightUnit } from '../../../shared/types'
+import type { SexOption } from '../../../shared/weight'
 import { MINERAL_KEYS, MINERAL_META, defaultMineralGoals } from '../../../shared/minerals'
+import { kgToLb, lbToKg, round1 } from '../lib/format'
 
 type Props = {
   onToast: (msg: string) => void
@@ -27,7 +29,16 @@ export default function SettingsPage({ onToast, onReset }: Props): React.JSX.Ele
 
   async function save(): Promise<void> {
     if (!form) return
-    const next = await window.api.updateSettings(ensureMineralGoals(form))
+    const heightCm = form.heightCm != null && form.heightCm > 0 ? form.heightCm : undefined
+    const weightGoalKg =
+      form.weightGoalKg != null && form.weightGoalKg > 0 ? form.weightGoalKg : undefined
+    const weightStartKg =
+      form.weightStartKg != null && form.weightStartKg > 0 ? form.weightStartKg : undefined
+    const sex: SexOption =
+      form.sex === 'female' || form.sex === 'male' || form.sex === 'other' ? form.sex : ''
+    const next = await window.api.updateSettings(
+      ensureMineralGoals({ ...form, heightCm, weightGoalKg, weightStartKg, sex })
+    )
     setForm(ensureMineralGoals(next))
     onToast('Settings saved')
   }
@@ -162,6 +173,92 @@ export default function SettingsPage({ onToast, onReset }: Props): React.JSX.Ele
               <option value="kg">Kilograms (kg)</option>
               <option value="lb">Pounds (lb)</option>
             </select>
+          </label>
+          <label>
+            Height (cm)
+            <input
+              className="input"
+              type="number"
+              step="0.1"
+              value={form.heightCm ?? ''}
+              onChange={(e) => {
+                const n = Number(e.target.value)
+                setForm({
+                  ...form,
+                  heightCm: e.target.value === '' || !(n > 0) ? undefined : n
+                })
+              }}
+              placeholder="e.g. 170"
+            />
+          </label>
+          <label>
+            Sex
+            <select
+              className="input"
+              value={form.sex ?? ''}
+              onChange={(e) =>
+                setForm({ ...form, sex: e.target.value as SexOption })
+              }
+            >
+              <option value="">Prefer not to say</option>
+              <option value="female">Female</option>
+              <option value="male">Male</option>
+              <option value="other">Other</option>
+            </select>
+          </label>
+          <label>
+            Goal weight ({form.weightUnit})
+            <input
+              className="input"
+              type="number"
+              step="0.1"
+              value={
+                form.weightGoalKg != null && form.weightGoalKg > 0
+                  ? form.weightUnit === 'lb'
+                    ? round1(kgToLb(form.weightGoalKg))
+                    : round1(form.weightGoalKg)
+                  : ''
+              }
+              onChange={(e) => {
+                const n = Number(e.target.value)
+                if (e.target.value === '' || !(n > 0)) {
+                  setForm({ ...form, weightGoalKg: undefined })
+                  return
+                }
+                setForm({
+                  ...form,
+                  weightGoalKg: form.weightUnit === 'lb' ? lbToKg(n) : n
+                })
+              }}
+              placeholder={form.weightUnit === 'kg' ? 'e.g. 70' : 'e.g. 154'}
+            />
+          </label>
+          <label>
+            Starting weight ({form.weightUnit})
+            <input
+              className="input"
+              type="number"
+              step="0.1"
+              value={
+                form.weightStartKg != null && form.weightStartKg > 0
+                  ? form.weightUnit === 'lb'
+                    ? round1(kgToLb(form.weightStartKg))
+                    : round1(form.weightStartKg)
+                  : ''
+              }
+              onChange={(e) => {
+                const n = Number(e.target.value)
+                if (e.target.value === '' || !(n > 0)) {
+                  setForm({ ...form, weightStartKg: undefined })
+                  return
+                }
+                setForm({
+                  ...form,
+                  weightStartKg: form.weightUnit === 'lb' ? lbToKg(n) : n
+                })
+              }}
+              placeholder="Optional"
+            />
           </label>
         </div>
       </div>

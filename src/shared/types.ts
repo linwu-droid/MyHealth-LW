@@ -13,6 +13,14 @@ export interface AppSettings {
   carbsGoalG: number
   fatGoalG: number
   weightUnit: WeightUnit
+  /** Height in cm — used for BMI and recommended weight range. */
+  heightCm?: number
+  /** Optional sex for ideal-body-weight estimate (Devine). */
+  sex?: 'female' | 'male' | 'other' | ''
+  /** Target body weight in kg. */
+  weightGoalKg?: number
+  /** Optional starting weight (kg) for progress; defaults to earliest log. */
+  weightStartKg?: number
   /** Daily mineral goals (mg unless selenium/iodine ug). Partial overrides OK. */
   mineralGoals?: Partial<Record<MineralKey, number>>
 }
