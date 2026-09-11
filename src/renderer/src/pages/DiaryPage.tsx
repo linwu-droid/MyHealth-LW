@@ -1,4 +1,4 @@
-﻿import React, { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
+﻿import React, { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { DiaryEntry, Food, MealType, WaterLog } from '../../../shared/types'
 import {
   formatMlExact,
@@ -64,6 +64,7 @@ export default function DiaryPage({ onToast }: Props): React.JSX.Element {
   const [recommendedWaterMl, setRecommendedWaterMl] = useState(2000)
   const [customWaterMl, setCustomWaterMl] = useState('250')
   const [showAdd, setShowAdd] = useState(false)
+  const addPanelRef = useRef<HTMLDivElement>(null)
   const [meal, setMeal] = useState<MealType>('breakfast')
   const [query, setQuery] = useState('')
   const [foods, setFoods] = useState<Food[]>([])
@@ -135,6 +136,14 @@ export default function DiaryPage({ onToast }: Props): React.JSX.Element {
       window.clearTimeout(t)
     }
   }, [query, showAdd, mode, onToast])
+
+  useEffect(() => {
+    if (!showAdd) return
+    const t = window.setTimeout(() => {
+      addPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 50)
+    return () => window.clearTimeout(t)
+  }, [showAdd])
 
   const dayTotals = useMemo(() => sum(entries), [entries])
   const remaining = calorieGoal - dayTotals.kcal + exerciseKcal
@@ -452,7 +461,7 @@ export default function DiaryPage({ onToast }: Props): React.JSX.Element {
       </div>
 
       {showAdd && (
-        <div className="panel">
+        <div className="panel" ref={addPanelRef} id="diary-add-food">
           <div className="panel-header">
             <h2>Add food</h2>
             <div className="spacer" />
