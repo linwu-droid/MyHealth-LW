@@ -4,30 +4,48 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import {
   addDiary,
   addExercise,
+  addShopping,
+  addShoppingMany,
   addWeight,
+  applyPortionsToDiary,
+  clearCheckedShopping,
   createFood,
+  createFoodsBulk,
   deleteDiary,
   deleteExercise,
   deleteFood,
+  deleteShopping,
   deleteWeight,
   exportDataToFile,
   getDashboard,
+  getPortionPlan,
   getSettings,
   importDataFromFile,
   listDiary,
   listExercise,
   listFoods,
+  listShopping,
   listWeight,
   resetData,
   updateDiary,
   updateFood,
-  updateSettings
+  updateSettings,
+  updateShopping
 } from './store'
+import {
+  fetchCommonFoodsPack,
+  searchOpenFoodFacts,
+  toFoodInput
+} from './nutritionOnline'
+import type { NutritionRef } from './portions'
 import type {
   AppSettings,
   DiaryEntry,
   Exercise,
-  Food
+  Food,
+  MealType,
+  PortionPlan,
+  ShoppingListItem
 } from '../shared/types'
 
 function createWindow(): BrowserWindow {
@@ -78,6 +96,74 @@ function registerIpc(getWindow: () => BrowserWindow | null): void {
     updateFood(id, patch)
   )
   ipcMain.handle('foods:delete', (_e, id: string) => deleteFood(id))
+
+  ipcMain.handle('nutrition:search', async (_e, query: string) => searchOpenFoodFacts(query))
+  ipcMain.handle('nutrition:importMany', (_e, foods: Omit<Food, 'id'>[]) =>
+    createFoodsBulk(Array.isArray(foods) ? foods : [])
+  )
+  ipcMain.handle('nutrition:importCommonPack', async () => {
+    const pack = await fetchCommonFoodsPack()
+    const result = createFoodsBulk(pack.map(toFoodInput))
+    return { ...result, fetched: pack.length }
+  })
+
+  ipcMain.handle('shopping:list', () => listShopping())
+  ipcMain.handle(
+    'shopping:add',
+    (
+      _e,
+      input: { name: string; quantity?: number; unit?: string; notes?: string; foodId?: string }
+    ) => addShopping(input)
+  )
+  ipcMain.handle('shopping:addMany', (_e, lines: string[]) =>
+    addShoppingMany(Array.isArray(lines) ? lines : [])
+  )
+  ipcMain.handle(
+    'shopping:update',
+    (_e, id: string, patch: Partial<Omit<ShoppingListItem, 'id' | 'createdAt'>>) =>
+      updateShopping(id, patch)
+  )
+  ipcMain.handle('shopping:delete', (_e, id: string) => deleteShopping(id))
+  ipcMain.handle('shopping:clearChecked', () => clearCheckedShopping())
+
+  ipcMain.handle('shopping:recommend', async (_e, days: number) => {
+    const items = listShopping().filter((i) => !i.checked)
+    const foods = listFoods()
+    const offline = new Map<string, NutritionRef>()
+    // Quick OFF lookup for unmatched names (best-effort; ignore failures)
+    for (const item of items) {
+      const hasLocal =
+        (item.foodId && foods.some((f) => f.id === item.foodId)) ||
+        foods.some(
+          (f) =>
+            f.name.toLowerCase().includes(item.name.toLowerCase()) ||
+            item.name.toLowerCase().includes(f.name.toLowerCase())
+        )
+      if (hasLocal) continue
+      try {
+        const hits = await searchOpenFoodFacts(item.name, 5)
+        const hit = hits[0]
+        if (!hit) continue
+        offline.set(item.id, {
+          name: hit.name,
+          servingLabel: hit.servingLabel,
+          kcal: hit.kcal,
+          protein: hit.protein,
+          carbs: hit.carbs,
+          fat: hit.fat
+        })
+      } catch {
+        // offline / OFF down — leave unmatched
+      }
+    }
+    return getPortionPlan(days, offline)
+  })
+
+  ipcMain.handle(
+    'shopping:applyPortions',
+    (_e, date: string, plan: PortionPlan, meal?: MealType) =>
+      applyPortionsToDiary(date, plan, meal ?? 'lunch')
+  )
 
   ipcMain.handle('diary:list', (_e, date?: string) => listDiary(date))
   ipcMain.handle('diary:add', (_e, input: Omit<DiaryEntry, 'id'>) => addDiary(input))

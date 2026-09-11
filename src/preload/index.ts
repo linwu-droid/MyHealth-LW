@@ -5,8 +5,22 @@ import type {
   DiaryEntry,
   Exercise,
   Food,
+  MealType,
+  OnlineFoodCandidate,
+  PortionPlan,
+  ShoppingListItem,
   WeightLog
 } from '../shared/types'
+
+export type BulkImportResult = {
+  created: number
+  skipped: number
+  foods: Food[]
+}
+
+export type CommonPackImportResult = BulkImportResult & {
+  fetched: number
+}
 
 const api = {
   getDashboard: (date: string): Promise<DashboardSummary> =>
@@ -23,6 +37,39 @@ const api = {
     ipcRenderer.invoke('foods:update', id, patch),
   deleteFood: (id: string): Promise<{ deleted: boolean }> =>
     ipcRenderer.invoke('foods:delete', id),
+
+  searchNutrition: (query: string): Promise<OnlineFoodCandidate[]> =>
+    ipcRenderer.invoke('nutrition:search', query),
+  importFoodsMany: (foods: Omit<Food, 'id'>[]): Promise<BulkImportResult> =>
+    ipcRenderer.invoke('nutrition:importMany', foods),
+  importCommonFoodsPack: (): Promise<CommonPackImportResult> =>
+    ipcRenderer.invoke('nutrition:importCommonPack'),
+
+  listShopping: (): Promise<ShoppingListItem[]> => ipcRenderer.invoke('shopping:list'),
+  addShopping: (input: {
+    name: string
+    quantity?: number
+    unit?: string
+    notes?: string
+    foodId?: string
+  }): Promise<ShoppingListItem> => ipcRenderer.invoke('shopping:add', input),
+  addShoppingMany: (lines: string[]): Promise<{ created: number; items: ShoppingListItem[] }> =>
+    ipcRenderer.invoke('shopping:addMany', lines),
+  updateShopping: (
+    id: string,
+    patch: Partial<Omit<ShoppingListItem, 'id' | 'createdAt'>>
+  ): Promise<ShoppingListItem | null> => ipcRenderer.invoke('shopping:update', id, patch),
+  deleteShopping: (id: string): Promise<{ deleted: boolean }> =>
+    ipcRenderer.invoke('shopping:delete', id),
+  clearCheckedShopping: (): Promise<{ removed: number }> =>
+    ipcRenderer.invoke('shopping:clearChecked'),
+  recommendPortions: (days: number): Promise<PortionPlan> =>
+    ipcRenderer.invoke('shopping:recommend', days),
+  applyPortionsToDiary: (
+    date: string,
+    plan: PortionPlan,
+    meal?: MealType
+  ): Promise<{ added: number }> => ipcRenderer.invoke('shopping:applyPortions', date, plan, meal),
 
   listDiary: (date?: string): Promise<DiaryEntry[]> => ipcRenderer.invoke('diary:list', date),
   addDiary: (input: Omit<DiaryEntry, 'id'>): Promise<DiaryEntry> =>

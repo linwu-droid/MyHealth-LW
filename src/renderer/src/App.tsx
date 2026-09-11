@@ -1,20 +1,29 @@
-﻿import type React from 'react'
+import type React from 'react'
 import { useCallback, useState } from 'react'
 import appIcon from './assets/app-icon.png'
 import revoLogo from './assets/revocon-logo.png'
 import HomePage from './pages/HomePage'
 import DiaryPage from './pages/DiaryPage'
 import FoodsPage from './pages/FoodsPage'
+import ShoppingPage from './pages/ShoppingPage'
 import WeightPage from './pages/WeightPage'
 import ExercisePage from './pages/ExercisePage'
 import SettingsPage from './pages/SettingsPage'
 
-export type AppView = 'home' | 'diary' | 'foods' | 'weight' | 'exercise' | 'settings'
+export type AppView =
+  | 'home'
+  | 'diary'
+  | 'foods'
+  | 'shopping'
+  | 'weight'
+  | 'exercise'
+  | 'settings'
 
 const NAV: { id: AppView; label: string }[] = [
   { id: 'home', label: 'Home' },
   { id: 'diary', label: 'Diary' },
   { id: 'foods', label: 'Foods' },
+  { id: 'shopping', label: 'Shopping' },
   { id: 'weight', label: 'Weight' },
   { id: 'exercise', label: 'Exercise' },
   { id: 'settings', label: 'Settings' }
@@ -61,6 +70,7 @@ export default function App(): React.JSX.Element {
           {view === 'home' && <HomePage onToast={showToast} onNavigate={setView} />}
           {view === 'diary' && <DiaryPage onToast={showToast} />}
           {view === 'foods' && <FoodsPage onToast={showToast} />}
+          {view === 'shopping' && <ShoppingPage onToast={showToast} />}
           {view === 'weight' && <WeightPage onToast={showToast} />}
           {view === 'exercise' && <ExercisePage onToast={showToast} />}
           {view === 'settings' && <SettingsPage onToast={showToast} onReset={bump} />}

@@ -11,11 +11,14 @@ import type {
   Food,
   MacroTotals,
   MealType,
+  PortionPlan,
+  ShoppingListItem,
   WeightLog
 } from '../shared/types'
+import { buildPortionPlan, type NutritionRef } from './portions'
 
 const STORE_FILE = 'myhealth-lw.json'
-const DATA_VERSION = 1
+const DATA_VERSION = 2
 
 function defaultSettings(): AppSettings {
   return {
@@ -67,7 +70,8 @@ function emptyData(): AppData {
     foods: seedFoods(),
     diaryEntries: [],
     weightLogs: [],
-    exercises: []
+    exercises: [],
+    shoppingList: []
   }
 }
 
@@ -95,7 +99,8 @@ function load(): AppData {
       foods: Array.isArray(raw.foods) ? raw.foods : seedFoods(),
       diaryEntries: Array.isArray(raw.diaryEntries) ? raw.diaryEntries : [],
       weightLogs: Array.isArray(raw.weightLogs) ? raw.weightLogs : [],
-      exercises: Array.isArray(raw.exercises) ? raw.exercises : []
+      exercises: Array.isArray(raw.exercises) ? raw.exercises : [],
+      shoppingList: Array.isArray(raw.shoppingList) ? raw.shoppingList : []
     }
   } catch {
     cache = emptyData()
@@ -162,6 +167,47 @@ export function createFood(input: Omit<Food, 'id'>): Food {
   data.foods.push(food)
   save(data)
   return food
+}
+
+export function createFoodsBulk(
+  inputs: Omit<Food, 'id'>[]
+): { created: number; skipped: number; foods: Food[] } {
+  const data = load()
+  const existing = new Set(
+    data.foods.map(
+      (f) => `${f.name.toLowerCase()}|${(f.brand ?? '').toLowerCase()}`
+    )
+  )
+  const created: Food[] = []
+  let skipped = 0
+  for (const input of inputs) {
+    const name = input.name.trim()
+    if (!name) {
+      skipped++
+      continue
+    }
+    const brand = input.brand?.trim() || undefined
+    const key = `${name.toLowerCase()}|${(brand ?? '').toLowerCase()}`
+    if (existing.has(key)) {
+      skipped++
+      continue
+    }
+    const food: Food = {
+      id: randomUUID(),
+      name,
+      brand,
+      servingLabel: input.servingLabel.trim() || '1 serving',
+      kcal: Number(input.kcal) || 0,
+      protein: Number(input.protein) || 0,
+      carbs: Number(input.carbs) || 0,
+      fat: Number(input.fat) || 0
+    }
+    data.foods.push(food)
+    existing.add(key)
+    created.push(food)
+  }
+  if (created.length > 0) save(data)
+  return { created: created.length, skipped, foods: created }
 }
 
 export function updateFood(id: string, patch: Partial<Omit<Food, 'id'>>): Food | null {
@@ -335,6 +381,125 @@ export function getDashboard(date: string): DashboardSummary {
   }
 }
 
+
+
+export function listShopping(): ShoppingListItem[] {
+  return [...load().shoppingList].sort((a, b) => {
+    const ac = a.checked ? 1 : 0
+    const bc = b.checked ? 1 : 0
+    if (ac !== bc) return ac - bc
+    return (b.createdAt || '').localeCompare(a.createdAt || '')
+  })
+}
+
+export function addShopping(
+  input: { name: string; quantity?: number; unit?: string; notes?: string; foodId?: string }
+): ShoppingListItem {
+  const data = load()
+  const item: ShoppingListItem = {
+    id: randomUUID(),
+    name: input.name.trim(),
+    quantity:
+      input.quantity !== undefined && input.quantity !== null
+        ? Number(input.quantity)
+        : undefined,
+    unit: input.unit?.trim() || undefined,
+    notes: input.notes?.trim() || undefined,
+    foodId: input.foodId,
+    checked: false,
+    createdAt: new Date().toISOString()
+  }
+  if (!item.name) throw new Error('Name is required')
+  data.shoppingList.push(item)
+  save(data)
+  return item
+}
+
+export function addShoppingMany(lines: string[]): { created: number; items: ShoppingListItem[] } {
+  const names = lines.map((l) => l.trim()).filter((l) => l.length > 0)
+  const created: ShoppingListItem[] = []
+  for (const name of names) {
+    created.push(addShopping({ name }))
+  }
+  return { created: created.length, items: created }
+}
+
+export function updateShopping(
+  id: string,
+  patch: Partial<Omit<ShoppingListItem, 'id' | 'createdAt'>>
+): ShoppingListItem | null {
+  const data = load()
+  const idx = data.shoppingList.findIndex((i) => i.id === id)
+  if (idx < 0) return null
+  const cur = data.shoppingList[idx]
+  data.shoppingList[idx] = {
+    ...cur,
+    ...patch,
+    name: patch.name !== undefined ? patch.name.trim() : cur.name,
+    unit: patch.unit !== undefined ? patch.unit.trim() || undefined : cur.unit,
+    notes: patch.notes !== undefined ? patch.notes.trim() || undefined : cur.notes
+  }
+  save(data)
+  return data.shoppingList[idx]
+}
+
+export function deleteShopping(id: string): { deleted: boolean } {
+  const data = load()
+  const before = data.shoppingList.length
+  data.shoppingList = data.shoppingList.filter((i) => i.id !== id)
+  save(data)
+  return { deleted: data.shoppingList.length < before }
+}
+
+export function clearCheckedShopping(): { removed: number } {
+  const data = load()
+  const before = data.shoppingList.length
+  data.shoppingList = data.shoppingList.filter((i) => !i.checked)
+  save(data)
+  return { removed: before - data.shoppingList.length }
+}
+
+export function getPortionPlan(
+  days: number,
+  offlineNutrition?: Map<string, NutritionRef>
+): PortionPlan {
+  const data = load()
+  return buildPortionPlan(
+    data.shoppingList,
+    data.foods,
+    data.settings,
+    days,
+    offlineNutrition
+  )
+}
+
+export function applyPortionsToDiary(
+  date: string,
+  plan: PortionPlan,
+  meal: MealType = 'lunch'
+): { added: number } {
+  const day = date.slice(0, 10)
+  let added = 0
+  for (const rec of plan.items) {
+    if (!rec.matched || !rec.foodId || rec.servingsPerDay <= 0) continue
+    const food = load().foods.find((f) => f.id === rec.foodId)
+    if (!food) continue
+    addDiary({
+      date: day,
+      meal,
+      foodId: food.id,
+      name: food.name,
+      servingQty: rec.servingsPerDay,
+      kcal: rec.perDay.kcal,
+      protein: rec.perDay.protein,
+      carbs: rec.perDay.carbs,
+      fat: rec.perDay.fat
+    })
+    added++
+  }
+  return { added }
+}
+
 export function exportData(): AppData {
   return structuredClone(load())
 }
@@ -346,7 +511,8 @@ export function importData(incoming: AppData): AppData {
     foods: Array.isArray(incoming.foods) ? incoming.foods : [],
     diaryEntries: Array.isArray(incoming.diaryEntries) ? incoming.diaryEntries : [],
     weightLogs: Array.isArray(incoming.weightLogs) ? incoming.weightLogs : [],
-    exercises: Array.isArray(incoming.exercises) ? incoming.exercises : []
+    exercises: Array.isArray(incoming.exercises) ? incoming.exercises : [],
+    shoppingList: Array.isArray(incoming.shoppingList) ? incoming.shoppingList : []
   }
   save(next)
   return structuredClone(next)

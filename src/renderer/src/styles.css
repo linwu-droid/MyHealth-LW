@@ -1,4 +1,4 @@
-﻿:root {
+:root {
   --sage: #5f7d65;
   --sage-2: #6f8f76;
   --sage-deep: #4a6350;
@@ -394,3 +394,59 @@ table.data tr.clickable { cursor: pointer; }
   max-width: 360px;
 }
 
+.segmented {
+  display: inline-flex;
+  padding: 3px;
+  gap: 2px;
+  background: #ebe4d6;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.segmented button {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  border-radius: 9px;
+  padding: 7px 14px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+.segmented button:hover {
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.45);
+}
+.segmented button.active {
+  background: var(--card);
+  color: var(--sage-deep);
+  box-shadow: 0 1px 4px rgba(42, 50, 44, 0.1);
+}
+
+a {
+  color: var(--sage-deep);
+}
+a:hover {
+  color: var(--sage);
+}
+
+.input.compact-input {
+  width: 100%;
+  min-width: 64px;
+  padding: 4px 8px;
+  margin-top: 0;
+  font-size: 0.88rem;
+}
+
+tr.shopping-checked td {
+  opacity: 0.55;
+  text-decoration: line-through;
+}
+tr.shopping-checked td:first-child,
+tr.shopping-checked td:last-child {
+  text-decoration: none;
+}
+
+textarea.input {
+  resize: vertical;
+  min-height: 96px;
+}

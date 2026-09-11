@@ -49,6 +49,17 @@ export interface Exercise {
   kcal: number
 }
 
+export interface ShoppingListItem {
+  id: string
+  name: string
+  quantity?: number
+  unit?: string
+  notes?: string
+  foodId?: string
+  checked?: boolean
+  createdAt: string
+}
+
 export interface AppData {
   version: number
   settings: AppSettings
@@ -56,6 +67,7 @@ export interface AppData {
   diaryEntries: DiaryEntry[]
   weightLogs: WeightLog[]
   exercises: Exercise[]
+  shoppingList: ShoppingListItem[]
 }
 
 export interface MacroTotals {
@@ -78,4 +90,31 @@ export interface DashboardSummary {
   previousWeightKg: number | null
   entryCount: number
   exerciseCount: number
+}
+
+export type OnlineFoodCandidate = Omit<Food, 'id'> & {
+  sourceId: string
+  source: 'openfoodfacts'
+}
+
+export interface PortionRecommendation {
+  shoppingItemId: string
+  name: string
+  foodId?: string
+  matched: boolean
+  servingsPerDay: number
+  servingsForPeriod: number
+  servingLabel: string
+  perDay: MacroTotals
+  forPeriod: MacroTotals
+  note?: string
+}
+
+export interface PortionPlan {
+  days: number
+  goalsPerDay: MacroTotals
+  items: PortionRecommendation[]
+  totalsPerDay: MacroTotals
+  totalsPeriod: MacroTotals
+  unmatchedCount: number
 }
