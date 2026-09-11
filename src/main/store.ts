@@ -19,7 +19,7 @@ import type {
 } from '../shared/types'
 import { buildPortionPlan, type NutritionRef } from './portions'
 import { analyzeNutrition } from './nutritionAnalysis'
-import { getDrinkSeedInputs, getHomemadeSeedInputs, getSupermarketSeedInputs, getHealthyShelfSeedInputs } from './nutritionOnline'
+import { getDrinkSeedInputs, getHomemadeSeedInputs, getSupermarketSeedInputs, getHealthyShelfSeedInputs, getVitaminSeedInputs } from './nutritionOnline'
 import {
   defaultMineralGoals,
   normalizeMinerals,
@@ -29,7 +29,7 @@ import { estimateExerciseKcal, resolveMetFromName } from '../shared/exerciseMet'
 import { recommendWaterMl } from '../shared/water'
 
 const STORE_FILE = 'myhealth-lw.json'
-const DATA_VERSION = 8
+const DATA_VERSION = 9
 
 function defaultSettings(): AppSettings {
   return {
@@ -218,6 +218,26 @@ function emptyData(): AppData {
     })
     existing.add(key)
   }
+  for (const input of getVitaminSeedInputs()) {
+    const name = input.name.trim()
+    if (!name) continue
+    const brand = input.brand?.trim() || undefined
+    const key = `${name.toLowerCase()}|${(brand ?? '').toLowerCase()}`
+    if (existing.has(key)) continue
+    const minerals = normalizeMinerals(input.minerals)
+    foods.push({
+      id: randomUUID(),
+      name,
+      brand,
+      servingLabel: input.servingLabel.trim() || '1 serving',
+      kcal: Number(input.kcal) || 0,
+      protein: Number(input.protein) || 0,
+      carbs: Number(input.carbs) || 0,
+      fat: Number(input.fat) || 0,
+      ...(minerals ? { minerals } : {})
+    })
+    existing.add(key)
+  }
   return {
     version: DATA_VERSION,
     settings: defaultSettings(),
@@ -370,6 +390,37 @@ function ensureHealthyShelfFoods(data: AppData): number {
   return created
 }
 
+
+/** Merge curated vitamin / supplement seeds into foods (name|brand dedupe). Returns count created. Does not save. */
+function ensureVitaminFoods(data: AppData): number {
+  const existing = new Set(
+    data.foods.map((f) => `${f.name.toLowerCase()}|${(f.brand ?? '').toLowerCase()}`)
+  )
+  let created = 0
+  for (const input of getVitaminSeedInputs()) {
+    const name = input.name.trim()
+    if (!name) continue
+    const brand = input.brand?.trim() || undefined
+    const key = `${name.toLowerCase()}|${(brand ?? '').toLowerCase()}`
+    if (existing.has(key)) continue
+    const minerals = normalizeMinerals(input.minerals)
+    data.foods.push({
+      id: randomUUID(),
+      name,
+      brand,
+      servingLabel: input.servingLabel.trim() || '1 serving',
+      kcal: Number(input.kcal) || 0,
+      protein: Number(input.protein) || 0,
+      carbs: Number(input.carbs) || 0,
+      fat: Number(input.fat) || 0,
+      ...(minerals ? { minerals } : {})
+    })
+    existing.add(key)
+    created++
+  }
+  return created
+}
+
 function load(): AppData {
   if (cache) return cache
   const path = dataPath()
@@ -439,6 +490,17 @@ function load(): AppData {
       const names = new Set(cache.foods.map((f) => f.name.toLowerCase()))
       if (!names.has('oat bran') || !names.has('chia seeds')) {
         const n = ensureHealthyShelfFoods(cache)
+        if (n > 0) migrated = true
+      }
+    }
+    if (rawVersion < 9) {
+      const n = ensureVitaminFoods(cache)
+      if (n > 0) migrated = true
+    } else {
+      // Safety net: if vitamin pack markers are missing, seed anyway.
+      const names = new Set(cache.foods.map((f) => f.name.toLowerCase()))
+      if (!names.has('multivitamin tablet') || !names.has('vitamin d3 softgel')) {
+        const n = ensureVitaminFoods(cache)
         if (n > 0) migrated = true
       }
     }

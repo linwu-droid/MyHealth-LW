@@ -8,7 +8,11 @@ import type {
   ShoppingListItem
 } from '../../../shared/types'
 import { todayIso } from '../lib/format'
-import PlateVisual from '../lib/PlateVisual'
+import PlateVisual, {
+  PLATE_MODES,
+  computePlateBalanceGaps,
+  type PlateMode
+} from '../lib/PlateVisual'
 
 type Props = { onToast: (msg: string) => void }
 
@@ -220,6 +224,7 @@ export default function ShoppingPage({ onToast }: Props): React.JSX.Element {
   const [loadingPlan, setLoadingPlan] = useState(false)
   const [applying, setApplying] = useState(false)
   const [expandedDay, setExpandedDay] = useState(1)
+  const [plateMode, setPlateMode] = useState<PlateMode>('healthy')
 
   const linkedFoods = useMemo(() => foodsForLinkSelect(foods), [foods])
 
@@ -227,6 +232,27 @@ export default function ShoppingPage({ onToast }: Props): React.JSX.Element {
     if (!plan) return [] as number[]
     return Array.from({ length: plan.days }, (_, i) => i + 1)
   }, [plan])
+
+  const plateBalanceGaps = useMemo(() => {
+    const names: string[] = []
+    const kcalByName = new Map<string, number>()
+    if (plan) {
+      for (const r of plan.items) {
+        names.push(r.name)
+        if (r.matched && r.perDay.kcal > 0) {
+          kcalByName.set(r.name.toLowerCase(), r.perDay.kcal)
+        }
+      }
+    } else {
+      for (const it of items) {
+        if (it.checked) continue
+        names.push(it.name)
+      }
+    }
+    return computePlateBalanceGaps(names, plateMode, kcalByName)
+  }, [plan, items, plateMode])
+
+  const plateMeta = PLATE_MODES[plateMode]
 
   const reload = useCallback(async () => {
     const [list, foodList] = await Promise.all([
@@ -549,7 +575,40 @@ export default function ShoppingPage({ onToast }: Props): React.JSX.Element {
         </p>
 
         <div className="portion-section">
-          <PlateVisual plan={plan} onToast={onToast} />
+          <PlateVisual
+            plan={plan}
+            onToast={onToast}
+            mode={plateMode}
+            onModeChange={setPlateMode}
+          />
+
+          <div className="portion-section plate-balance-section">
+            <div className="portion-section-header">
+              <h3>Plate balance</h3>
+              <span className="muted small">
+                {plateMeta.label} · targets {plateMeta.vegetables}/{plateMeta.carbohydrates}/{plateMeta.protein}% veg/carb/protein
+              </span>
+            </div>
+            <p className="muted small" style={{ marginTop: 0 }}>
+              Scores your shopping list{plan ? ' and portion plan' : ''} against the selected plate mode.
+              Tips appear when a group is missing or far under its target share.
+            </p>
+            {plateBalanceGaps.length === 0 ? (
+              <p className="muted small">Looks balanced for this plate mode — no urgent buy tips.</p>
+            ) : (
+              <div className="plate-buy-tips">
+                {plateBalanceGaps.map((g) => (
+                  <div key={g.group} className="tip-card plate-buy-tip">
+                    <strong>{g.tip}</strong>
+                    <div className="muted small">
+                      Now ~{g.sharePct}% (target {g.targetPct}%) · {g.count} matched item{g.count === 1 ? '' : 's'}
+                    </div>
+                    <div className="small">Try: {g.examples}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {plan && (

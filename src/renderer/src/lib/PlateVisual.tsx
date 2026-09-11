@@ -1,8 +1,9 @@
 import type React from 'react'
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { PortionPlan } from '../../../shared/types'
 
 export type PlateMode = 'healthy' | 'muscle'
+export type FoodGroup = 'vegetables' | 'carbohydrates' | 'protein'
 
 type PlateShare = {
   vegetables: number
@@ -12,7 +13,7 @@ type PlateShare = {
   source: 'plan' | 'healthy-default'
 }
 
-const MODE_META: Record<
+export const PLATE_MODES: Record<
   PlateMode,
   {
     vegetables: number
@@ -45,7 +46,8 @@ const PROTEIN_RE =
 const CARB_RE =
   /rice|pasta|bread|oat|potato|noodle|couscous|quinoa|cereal|muesli|wrap|tortilla|cracker|flour|weet|cornflake|bagel|toast/i
 
-function classifyName(name: string): 'vegetables' | 'carbohydrates' | 'protein' | null {
+/** Classify a food/shopping name into plate group using shared regexes. */
+export function classifyFoodGroup(name: string): FoodGroup | null {
   if (VEG_RE.test(name)) return 'vegetables'
   if (PROTEIN_RE.test(name)) return 'protein'
   if (CARB_RE.test(name)) return 'carbohydrates'
@@ -63,7 +65,7 @@ function collectLabels(plan: PortionPlan | null): PlateShare['labels'] {
 
   for (const r of plan.items) {
     if (!r.matched || r.servingsPerDay <= 0) continue
-    const byName = classifyName(r.name)
+    const byName = classifyFoodGroup(r.name)
     const pKcal = r.perDay.protein * 4
     const cKcal = r.perDay.carbs * 4
     const fKcal = r.perDay.fat * 9
@@ -88,7 +90,7 @@ function collectLabels(plan: PortionPlan | null): PlateShare['labels'] {
 
 /** Fixed mode ratios for the plate visual; labels still come from the plan when present. */
 export function derivePlateShare(plan: PortionPlan | null, mode: PlateMode = 'healthy'): PlateShare {
-  const meta = MODE_META[mode]
+  const meta = PLATE_MODES[mode]
   const labels = collectLabels(plan)
   return {
     vegetables: meta.vegetables,
@@ -99,12 +101,92 @@ export function derivePlateShare(plan: PortionPlan | null, mode: PlateMode = 'he
   }
 }
 
+export type PlateBalanceGap = {
+  group: FoodGroup
+  label: string
+  tip: string
+  examples: string
+  count: number
+  sharePct: number
+  targetPct: number
+}
+
+/** Score shopping / plan items against plate mode targets; return purchase gaps. */
+export function computePlateBalanceGaps(
+  names: string[],
+  mode: PlateMode,
+  kcalByName?: Map<string, number>
+): PlateBalanceGap[] {
+  const meta = PLATE_MODES[mode]
+  const counts: Record<FoodGroup, number> = {
+    vegetables: 0,
+    carbohydrates: 0,
+    protein: 0
+  }
+  const kcal: Record<FoodGroup, number> = {
+    vegetables: 0,
+    carbohydrates: 0,
+    protein: 0
+  }
+  for (const name of names) {
+    const g = classifyFoodGroup(name)
+    if (!g) continue
+    counts[g]++
+    const k = kcalByName?.get(name.toLowerCase()) ?? 1
+    kcal[g] += Math.max(0, k)
+  }
+  const totalKcal = kcal.vegetables + kcal.carbohydrates + kcal.protein
+  const share = (g: FoodGroup): number =>
+    totalKcal > 0 ? (kcal[g] / totalKcal) * 100 : counts[g] > 0 ? 33.3 : 0
+
+  const tips: { group: FoodGroup; label: string; tip: string; examples: string }[] = [
+    {
+      group: 'vegetables',
+      label: 'Vegetables',
+      tip: 'Buy more: Vegetables',
+      examples: 'Leafy greens, broccoli, salad mix, cucumber, capsicum, frozen mixed veg'
+    },
+    {
+      group: 'protein',
+      label: 'Protein',
+      tip: 'Buy more: Protein',
+      examples: 'Chicken, fish, eggs, tofu, yoghurt, legumes'
+    },
+    {
+      group: 'carbohydrates',
+      label: 'Carbohydrates',
+      tip: 'Buy more: Carbohydrates',
+      examples: 'Rice, oats, potato, pasta, wholegrain bread'
+    }
+  ]
+
+  const gaps: PlateBalanceGap[] = []
+  for (const t of tips) {
+    const target = meta[t.group]
+    const sharePct = share(t.group)
+    const count = counts[t.group]
+    const under = count === 0 || sharePct < target / 2
+    if (under) {
+      gaps.push({
+        group: t.group,
+        label: t.label,
+        tip: t.tip,
+        examples: t.examples,
+        count,
+        sharePct: Math.round(sharePct),
+        targetPct: target
+      })
+    }
+  }
+  return gaps
+}
+
 function polar(cx: number, cy: number, r: number, angleDeg: number): [number, number] {
   const rad = ((angleDeg - 90) * Math.PI) / 180
   return [cx + r * Math.cos(rad), cy + r * Math.sin(rad)]
 }
 
-/** Pie slice from startPct to endPct (0–100), angles from top clockwise. */
+/** Pie slice from startPct to endPct (0-100), angles from top clockwise. */
 function piePath(cx: number, cy: number, r: number, startPct: number, endPct: number): string {
   const startAngle = startPct * 3.6
   const endAngle = endPct * 3.6
@@ -122,22 +204,42 @@ function labelAt(cx: number, cy: number, r: number, startPct: number, endPct: nu
 type Props = {
   plan: PortionPlan | null
   onToast: (msg: string) => void
+  /** Controlled plate mode (preferred when Shopping owns mode for portion tips). */
+  mode?: PlateMode
+  onModeChange?: (mode: PlateMode) => void
 }
 
 /**
  * Recommended-plate SVG with two fixed modes:
- * Healthy Eating (2–1–1 → 50/25/25) and Muscle Gain (2–2–1 → 40/20/40).
+ * Healthy Eating (2-1-1 -> 50/25/25) and Muscle Gain (2-2-1 -> 40/20/40).
  */
-export default function PlateVisual({ plan, onToast }: Props): React.JSX.Element {
-  const [mode, setMode] = useState<PlateMode>('healthy')
+export default function PlateVisual({
+  plan,
+  onToast,
+  mode: modeProp,
+  onModeChange
+}: Props): React.JSX.Element {
+  const [internalMode, setInternalMode] = useState<PlateMode>('healthy')
+  const mode = modeProp ?? internalMode
+  const setMode = (next: PlateMode): void => {
+    if (onModeChange) onModeChange(next)
+    else setInternalMode(next)
+  }
+
   const share = useMemo(() => derivePlateShare(plan, mode), [plan, mode])
   const svgRef = useRef<SVGSVGElement | null>(null)
+  const [generating, setGenerating] = useState(false)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    setPreviewUrl(null)
+  }, [mode])
 
   const vegPct = share.vegetables
   const carbPct = share.carbohydrates
   const protPct = share.protein
-  const meta = MODE_META[mode]
+  const meta = PLATE_MODES[mode]
 
   const vegEnd = vegPct
   const carbEnd = vegPct + carbPct
@@ -148,19 +250,17 @@ export default function PlateVisual({ plan, onToast }: Props): React.JSX.Element
   const [carbLx, carbLy] = labelAt(180, 180, 140, vegEnd, carbEnd)
   const [protLx, protLy] = labelAt(180, 180, 140, carbEnd, 100)
 
-  // Divider endpoints at slice boundaries
   const [d1x, d1y] = polar(180, 180, 140, vegEnd * 3.6)
   const [d2x, d2y] = polar(180, 180, 140, carbEnd * 3.6)
   const [d0x, d0y] = polar(180, 180, 140, 0)
 
-  async function savePng(): Promise<void> {
+  async function renderPngDataUrl(): Promise<string> {
     const svg = svgRef.current
-    if (!svg) return
-    setSaving(true)
+    if (!svg) throw new Error('Plate SVG unavailable')
+    const xml = new XMLSerializer().serializeToString(svg)
+    const blob = new Blob([xml], { type: 'image/svg+xml;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
     try {
-      const xml = new XMLSerializer().serializeToString(svg)
-      const blob = new Blob([xml], { type: 'image/svg+xml;charset=utf-8' })
-      const url = URL.createObjectURL(blob)
       const img = new Image()
       const loaded = new Promise<void>((resolve, reject) => {
         img.onload = () => resolve()
@@ -176,8 +276,30 @@ export default function PlateVisual({ plan, onToast }: Props): React.JSX.Element
       ctx.fillStyle = '#f5f0e6'
       ctx.fillRect(0, 0, canvas.width, canvas.height)
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+      return canvas.toDataURL('image/png')
+    } finally {
       URL.revokeObjectURL(url)
-      const dataUrl = canvas.toDataURL('image/png')
+    }
+  }
+
+  async function showPlateImage(): Promise<void> {
+    setGenerating(true)
+    try {
+      const dataUrl = await renderPngDataUrl()
+      setPreviewUrl(dataUrl)
+      onToast('Plate image shown')
+    } catch (err) {
+      onToast(err instanceof Error ? err.message : 'Could not generate plate image')
+    } finally {
+      setGenerating(false)
+    }
+  }
+
+  async function savePng(): Promise<void> {
+    setSaving(true)
+    try {
+      const dataUrl = previewUrl ?? (await renderPngDataUrl())
+      if (!previewUrl) setPreviewUrl(dataUrl)
       if (typeof window.api.savePngDataUrl === 'function') {
         const res = await window.api.savePngDataUrl(
           dataUrl,
@@ -334,14 +456,35 @@ export default function PlateVisual({ plan, onToast }: Props): React.JSX.Element
                 : 'Lean meat, fish, eggs, legumes'}
             </div>
           </div>
-          <button
-            type="button"
-            className="btn primary"
-            disabled={saving}
-            onClick={() => void savePng()}
-          >
-            {saving ? 'Saving…' : 'Generate plate image'}
-          </button>
+          <div className="plate-generate-row">
+            <button
+              type="button"
+              className="btn primary"
+              disabled={generating}
+              onClick={() => void showPlateImage()}
+            >
+              {generating ? 'Generating…' : previewUrl ? 'Refresh plate image' : 'Show plate image'}
+            </button>
+            {previewUrl && (
+              <div className="plate-preview-wrap">
+                <img
+                  className="plate-preview-img"
+                  src={previewUrl}
+                  alt="Generated plate preview"
+                  width={200}
+                  height={200}
+                />
+                <button
+                  type="button"
+                  className="btn link-btn"
+                  disabled={saving}
+                  onClick={() => void savePng()}
+                >
+                  {saving ? 'Saving…' : 'Save…'}
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

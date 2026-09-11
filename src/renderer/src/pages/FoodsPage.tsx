@@ -3,7 +3,7 @@ import type { Food } from '../../../shared/types'
 import NutritionDetail from '../lib/NutritionDetail'
 
 type Props = { onToast: (msg: string) => void }
-type FoodKindFilter = 'all' | 'foods' | 'drinks' | 'homemade' | 'supermarket' | 'healthyShelf'
+type FoodKindFilter = 'all' | 'foods' | 'drinks' | 'homemade' | 'supermarket' | 'healthyShelf' | 'supplements'
 
 const DRINK_SERVING_RE = /ml|cup|oz|litre|liter|bottle/i
 const DRINK_NAME_RE =
@@ -32,6 +32,13 @@ const HEALTHY_SHELF_NAME_RE =
 
 function isHealthyShelfFood(f: Food): boolean {
   return HEALTHY_SHELF_NAME_RE.test(f.name)
+}
+
+const VITAMIN_NAME_RE =
+  /vitamin|multivitamin|supplement|softgel|capsule|tablet|omega-?3|fish oil|probiotic|collagen powder|creatine|electrolyte powder|biotin|coq10|co-?q-?10|glucosamine|turmeric curcumin|ashwagandha|magnesium glycinate|zinc picolinate|folate|methylfolate|prenatal|melatonin|spirulina|krill oil|cod liver|bcaa|l-glutamine|casein protein|plant protein powder|whey protein powder|fibre supplement|evening primrose|iron supplement|liquid iron|calcium \+ vitamin/i
+
+function isVitaminFood(f: Food): boolean {
+  return VITAMIN_NAME_RE.test(f.name)
 }
 
 const blank = {
@@ -70,12 +77,26 @@ export default function FoodsPage({ onToast }: Props): React.JSX.Element {
     if (kindFilter === 'homemade') return foods.filter((f) => isHomemadeFood(f) && !isDrinkFood(f))
     if (kindFilter === 'supermarket')
       return foods.filter(
-        (f) => isSupermarketFood(f) && !isDrinkFood(f) && !isHomemadeFood(f) && !isHealthyShelfFood(f)
+        (f) =>
+          isSupermarketFood(f) &&
+          !isDrinkFood(f) &&
+          !isHomemadeFood(f) &&
+          !isHealthyShelfFood(f) &&
+          !isVitaminFood(f)
       )
     if (kindFilter === 'healthyShelf')
-      return foods.filter((f) => isHealthyShelfFood(f) && !isDrinkFood(f) && !isHomemadeFood(f))
+      return foods.filter(
+        (f) => isHealthyShelfFood(f) && !isDrinkFood(f) && !isHomemadeFood(f) && !isVitaminFood(f)
+      )
+    if (kindFilter === 'supplements')
+      return foods.filter((f) => isVitaminFood(f) && !isDrinkFood(f) && !isHomemadeFood(f))
     return foods.filter(
-      (f) => !isDrinkFood(f) && !isHomemadeFood(f) && !isSupermarketFood(f) && !isHealthyShelfFood(f)
+      (f) =>
+        !isDrinkFood(f) &&
+        !isHomemadeFood(f) &&
+        !isSupermarketFood(f) &&
+        !isHealthyShelfFood(f) &&
+        !isVitaminFood(f)
     )
   }, [foods, kindFilter])
 
@@ -142,7 +163,8 @@ export default function FoodsPage({ onToast }: Props): React.JSX.Element {
               ['drinks', 'Drinks'],
               ['homemade', 'Homemade'],
               ['supermarket', 'Supermarket'],
-              ['healthyShelf', 'Healthy shelf']
+              ['healthyShelf', 'Healthy shelf'],
+              ['supplements', 'Supplements']
             ] as const
           ).map(([id, label]) => (
             <button
@@ -262,7 +284,7 @@ export default function FoodsPage({ onToast }: Props): React.JSX.Element {
             <h3>No foods found</h3>
             <p>
               Add a food, clear the search, or switch All / Foods / Drinks / Homemade /
-              Supermarket / Healthy shelf. Shelf-stable and drink packs are auto-seeded into this database.
+              Supermarket / Healthy shelf / Supplements. Shelf-stable, drink, and vitamin packs are auto-seeded into this database.
             </p>
           </div>
         ) : (

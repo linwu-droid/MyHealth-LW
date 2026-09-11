@@ -768,3 +768,51 @@ tr.detail-row > td {
   min-width: 150px;
   justify-content: center;
 }
+.plate-generate-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.plate-preview-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+.plate-preview-img {
+  width: 200px;
+  height: 200px;
+  object-fit: contain;
+  border: 2px solid #e8dfd0;
+  border-radius: 12px;
+  background: #f5f0e6;
+}
+.btn.link-btn {
+  background: transparent;
+  border: none;
+  color: var(--accent, #2f6f4e);
+  padding: 0;
+  min-height: auto;
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+.plate-buy-tips {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+  margin-top: 8px;
+}
+.tip-card.plate-buy-tip {
+  border: 1px solid #e2d6c4;
+  background: #fffaf0;
+  border-radius: 10px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.plate-balance-section {
+  margin-top: 16px;
+}
