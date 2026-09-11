@@ -1,4 +1,4 @@
-import type { MineralKey, MineralMap } from './minerals'
+﻿import type { MineralKey, MineralMap } from './minerals'
 import type { PortionUnit } from './portionUnits'
 export type { PortionUnit } from './portionUnits'
 export type { MineralKey, MineralMap } from './minerals'
@@ -15,7 +15,7 @@ export interface AppSettings {
   carbsGoalG: number
   fatGoalG: number
   weightUnit: WeightUnit
-  /** Height in cm — used for BMI and recommended weight range. */
+  /** Height in cm â€” used for BMI and recommended weight range. */
   heightCm?: number
   /** Optional sex for ideal-body-weight estimate (Devine). */
   sex?: 'female' | 'male' | 'other' | ''
@@ -119,6 +119,8 @@ export interface HealthProfile {
 
 export interface AppData {
   version: number
+  /** Stable PC fingerprint; wipe data when this differs from current machine. */
+  machineFingerprint?: string
   settings: AppSettings
   foods: Food[]
   diaryEntries: DiaryEntry[]
@@ -179,7 +181,7 @@ export interface PortionRecommendation {
   servingsPerDay: number
   servingsForPeriod: number
   servingLabel: string
-  /** Servings allocated to each main meal (sums ≈ servingsPerDay). */
+  /** Servings allocated to each main meal (sums â‰ˆ servingsPerDay). */
   servingsByMeal: MealServings
   /** Which meal(s) this item is suggested for. */
   suggestedMeals: MainMealType[]
@@ -259,7 +261,7 @@ export interface NutritionAnalysis {
   daysWithEntries: number
   entryCount: number
   totals: MacroTotals
-  /** Totals ÷ days in window (includes zero days). */
+  /** Totals Ã· days in window (includes zero days). */
   averagePerDay: MacroTotals
   /** Compared against daily goals (actual = day total or averagePerDay). */
   vsGoals: {
@@ -276,7 +278,7 @@ export interface NutritionAnalysis {
   notes: string[]
   /** Period mineral totals (mg / ug). */
   mineralTotals: MineralMap
-  /** Mineral totals ÷ days in window. */
+  /** Mineral totals Ã· days in window. */
   mineralAveragePerDay: MineralMap
   /** Compared against daily mineral goals. */
   vsMineralGoals: Partial<Record<MineralKey, MacroVsGoal>>

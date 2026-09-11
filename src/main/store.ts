@@ -1,7 +1,9 @@
-import { app, dialog, BrowserWindow } from 'electron'
+﻿import { app, dialog, BrowserWindow } from 'electron'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import { randomUUID } from 'crypto'
+import { getMachineFingerprint } from './machineId'
+import { NEW_STORE, OLD_STORE } from './userDataPath'
 import type {
   AppData,
   AppSettings,
@@ -36,7 +38,7 @@ import {
 import { estimateExerciseKcal, resolveMetFromName } from '../shared/exerciseMet'
 import { recommendWaterMl } from '../shared/water'
 
-const STORE_FILE = 'myhealth-lw.json'
+const STORE_FILE = NEW_STORE
 const DATA_VERSION = 11
 
 function defaultSettings(): AppSettings {
@@ -50,13 +52,13 @@ function defaultSettings(): AppSettings {
     sex: '',
     weightGoalKg: undefined,
     weightStartKg: undefined,
-    // AU/NZ NRV / WHO-ish adult defaults Ã¢â‚¬â€ see shared/minerals.ts
+    // AU/NZ NRV / WHO-ish adult defaults ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â see shared/minerals.ts
     mineralGoals: defaultMineralGoals()
   }
 }
 
 function seedFoods(): Food[] {
-  // Approximate USDA-style minerals per listed serving (mg; Se/I in Ã‚Âµg). Undefined when unknown.
+  // Approximate USDA-style minerals per listed serving (mg; Se/I in Ãƒâ€šÃ‚Âµg). Undefined when unknown.
   const items: Omit<Food, 'id'>[] = [
     { name: 'Chicken breast, grilled', brand: '', servingLabel: '100 g', kcal: 165, protein: 31, carbs: 0, fat: 3.6,
       minerals: { sodium: 74, potassium: 256, calcium: 15, magnesium: 29, phosphorus: 228, iron: 1, zinc: 1, copper: 0.05, manganese: 0.02, selenium: 27, iodine: 7 } },
@@ -248,6 +250,7 @@ function emptyData(): AppData {
   }
   return {
     version: DATA_VERSION,
+    machineFingerprint: getMachineFingerprint(),
     settings: defaultSettings(),
     foods,
     diaryEntries: [],
@@ -259,10 +262,24 @@ function emptyData(): AppData {
   }
 }
 
-function dataPath(): string {
+function storeDir(): string {
   const dir = app.getPath('userData')
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
-  return join(dir, STORE_FILE)
+  return dir
+}
+
+/** Prefer myhealth.json; fall back to legacy myhealth-lw.json for reads. */
+function dataPath(): string {
+  const dir = storeDir()
+  const preferred = join(dir, STORE_FILE)
+  if (existsSync(preferred)) return preferred
+  const legacy = join(dir, OLD_STORE)
+  if (existsSync(legacy)) return legacy
+  return preferred
+}
+
+function writeDataPath(): string {
+  return join(storeDir(), STORE_FILE)
 }
 
 let cache: AppData | null = null
@@ -436,6 +453,24 @@ function ensureHealthProfile(data: AppData): HealthProfile {
   return data.healthProfile
 }
 
+
+/** Wipe AppData when store was bound to a different PC; keep data on same PC. */
+function enforceMachineBinding(data: AppData): AppData {
+  const current = getMachineFingerprint()
+  const stored = typeof data.machineFingerprint === 'string' ? data.machineFingerprint : ''
+  if (!stored) {
+    data.machineFingerprint = current
+    return data
+  }
+  if (stored !== current) {
+    console.warn('[store] machine fingerprint mismatch — resetting AppData for new PC')
+    const fresh = emptyData()
+    fresh.machineFingerprint = current
+    return fresh
+  }
+  return data
+}
+
 function load(): AppData {
   if (cache) return cache
   const path = dataPath()
@@ -457,10 +492,20 @@ function load(): AppData {
       exercises: Array.isArray(raw.exercises) ? raw.exercises : [],
       shoppingList: hadShoppingList ? (raw.shoppingList as ShoppingListItem[]) : [],
       waterLogs: Array.isArray(raw.waterLogs) ? (raw.waterLogs as WaterLog[]) : [],
-      healthProfile: ensureHealthProfileShape(raw.healthProfile)
+      healthProfile: ensureHealthProfileShape(raw.healthProfile),
+      machineFingerprint:
+        typeof raw.machineFingerprint === 'string' ? raw.machineFingerprint : undefined
     }
+    const bound = enforceMachineBinding(cache)
+    if (bound !== cache) {
+      cache = bound
+      save(cache)
+      return cache
+    }
+    const hadFingerprint = typeof raw.machineFingerprint === 'string' && raw.machineFingerprint.length > 0
+    cache.machineFingerprint = bound.machineFingerprint
     // Persist migration when shoppingList was missing, version was stale, or seeds need merging.
-    let migrated = !hadShoppingList || rawVersion < DATA_VERSION
+    let migrated = !hadShoppingList || rawVersion < DATA_VERSION || !hadFingerprint
     if (rawVersion < 4) {
       const n = ensureDrinkFoods(cache)
       if (n > 0) migrated = true
@@ -539,8 +584,9 @@ function save(data: AppData): void {
   if (!Array.isArray(data.waterLogs)) data.waterLogs = []
   ensureHealthProfile(data)
   data.version = DATA_VERSION
+  if (!data.machineFingerprint) data.machineFingerprint = getMachineFingerprint()
   cache = data
-  writeFileSync(dataPath(), JSON.stringify(data, null, 2), 'utf8')
+  writeFileSync(writeDataPath(), JSON.stringify(data, null, 2), 'utf8')
 }
 
 function zeroMacros(): MacroTotals {
@@ -1119,6 +1165,7 @@ export function exportData(): AppData {
 export function importData(incoming: AppData): AppData {
   const next: AppData = {
     version: DATA_VERSION,
+    machineFingerprint: getMachineFingerprint(),
     settings: migrateSettings(incoming.settings),
     foods: Array.isArray(incoming.foods) ? incoming.foods : [],
     diaryEntries: Array.isArray(incoming.diaryEntries) ? incoming.diaryEntries : [],
@@ -1188,7 +1235,7 @@ export async function importHealthReportFile(
           cancelled: false,
           text: text || '',
           fileName: filePath,
-          note: 'Little or no text extracted from PDF (scanned/image PDFs need paste — OCR not supported).',
+          note: 'Little or no text extracted from PDF (scanned/image PDFs need paste â€” OCR not supported).',
           error: !text ? 'No extractable text in PDF. Paste the report text instead.' : undefined
         }
       }
@@ -1212,7 +1259,7 @@ export async function importHealthReportFile(
 export async function exportDataToFile(win: BrowserWindow | null): Promise<{ cancelled: boolean; path?: string }> {
   const res = await dialog.showSaveDialog(win ?? undefined!, {
     title: 'Export MyHealth data',
-    defaultPath: `myhealth-lw-export-${new Date().toISOString().slice(0, 10)}.json`,
+    defaultPath: `myhealth-export-${new Date().toISOString().slice(0, 10)}.json`,
     filters: [{ name: 'JSON', extensions: ['json'] }]
   })
   if (res.canceled || !res.filePath) return { cancelled: true }

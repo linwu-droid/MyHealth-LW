@@ -1,6 +1,6 @@
 {
   "name": "myhealth-lw",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "MyHealth - Food, weight and balance tracker. RevoCon (TM) - L.W.",
   "main": "./out/main/index.js",
   "author": "L.W. / RevoCon",
@@ -16,11 +16,14 @@
     "build:unpack": "npm run build && electron-builder --dir",
     "build:win": "npm run build && electron-builder --win",
     "build:mac": "npm run build && electron-builder --mac",
-    "build:linux": "npm run build && electron-builder --linux"
+    "build:linux": "npm run build && electron-builder --linux",
+    "dist": "npm version patch --no-git-tag-version && npm run build:win",
+    "release:win": "npm version patch --no-git-tag-version && npm run build:win"
   },
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",
-    "@electron-toolkit/utils": "^4.0.0"
+    "@electron-toolkit/utils": "^4.0.0",
+    "electron-updater": "^6.8.9"
   },
   "devDependencies": {
     "@electron-toolkit/tsconfig": "^2.0.0",

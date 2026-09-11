@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+﻿import { contextBridge, ipcRenderer } from 'electron'
 import type {
   AppSettings,
   DashboardSummary,
@@ -146,7 +146,16 @@ const api = {
     error?: string
     note?: string
     fileName?: string
-  }> => ipcRenderer.invoke('health:importFile')
+  }> => ipcRenderer.invoke('health:importFile'),
+
+  checkForUpdates: (): Promise<{
+    ok: boolean
+    reason?: string
+    version?: string
+    updateAvailable?: boolean
+    message?: string
+  }> => ipcRenderer.invoke('updater:check'),
+  getAppVersion: (): Promise<string> => ipcRenderer.invoke('updater:getVersion')
 }
 
 contextBridge.exposeInMainWorld('api', api)

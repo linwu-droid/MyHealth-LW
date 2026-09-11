@@ -1,4 +1,9 @@
-import { app, shell, BrowserWindow, ipcMain, Menu } from 'electron'
+﻿import { app, shell, BrowserWindow, ipcMain, Menu } from 'electron'
+import { migrateAndSetUserDataPath } from './userDataPath'
+import { setupAutoUpdater } from './updater'
+
+// Bind AppData folder before anything reads userData (same-PC migrate myhealth-lw -> myhealth).
+migrateAndSetUserDataPath()
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import {
@@ -202,7 +207,7 @@ function registerIpc(getWindow: () => BrowserWindow | null): void {
           fat: hit.fat
         })
       } catch {
-        // offline / OFF down Ã¢â‚¬â€ leave unmatched
+        // offline / OFF down ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â leave unmatched
       }
     }
     return getPortionPlan(days, offline)
@@ -287,6 +292,7 @@ if (!gotSingleInstanceLock) {
     let mainWindow: BrowserWindow | null = null
     mainWindow = createWindow()
     registerIpc(() => mainWindow)
+    setupAutoUpdater(() => mainWindow)
 
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) {

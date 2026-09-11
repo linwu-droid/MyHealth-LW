@@ -1,4 +1,4 @@
-import type React from 'react'
+﻿import type React from 'react'
 import { useEffect, useState } from 'react'
 import type { AppSettings, MineralKey, WeightUnit } from '../../../shared/types'
 import type { SexOption } from '../../../shared/weight'
@@ -21,6 +21,9 @@ function ensureMineralGoals(s: AppSettings): AppSettings {
 export default function SettingsPage({ onToast, onReset }: Props): React.JSX.Element {
   const [form, setForm] = useState<AppSettings | null>(null)
   const [recommendedWater, setRecommendedWater] = useState(2000)
+  const [appVersion, setAppVersion] = useState('')
+  const [updateMsg, setUpdateMsg] = useState('')
+  const [updateBusy, setUpdateBusy] = useState(false)
 
   useEffect(() => {
     void window.api
@@ -33,6 +36,10 @@ export default function SettingsPage({ onToast, onReset }: Props): React.JSX.Ele
       .catch(() => {
         /* non-fatal */
       })
+    void window.api
+      .getAppVersion()
+      .then(setAppVersion)
+      .catch(() => setAppVersion(''))
   }, [onToast])
 
   async function save(): Promise<void> {
@@ -76,6 +83,22 @@ export default function SettingsPage({ onToast, onReset }: Props): React.JSX.Ele
     onToast('Data imported')
   }
 
+  async function doCheckUpdates(): Promise<void> {
+    setUpdateBusy(true)
+    setUpdateMsg('Checking...')
+    try {
+      const res = await window.api.checkForUpdates()
+      setUpdateMsg(res.message || (res.ok ? 'Checked.' : 'Update check failed.'))
+      onToast(res.message || 'Update check finished')
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      setUpdateMsg(msg)
+      onToast(`Update check failed: ${msg}`)
+    } finally {
+      setUpdateBusy(false)
+    }
+  }
+
   async function doReset(): Promise<void> {
     const ok = window.confirm(
       'Reset all MyHealth data? This restores default settings and the seed food list. Diary, water, weight and exercise logs will be cleared.'
@@ -102,7 +125,7 @@ export default function SettingsPage({ onToast, onReset }: Props): React.JSX.Ele
   if (!form) {
     return (
       <div className="panel">
-        <p className="muted">Loading…</p>
+        <p className="muted">Loadingâ€¦</p>
       </div>
     )
   }
@@ -295,7 +318,7 @@ export default function SettingsPage({ onToast, onReset }: Props): React.JSX.Ele
           </label>
           <div className="full row-actions" style={{ alignItems: 'center' }}>
             <span className="muted small">
-              Recommended ~{formatMlExact(recommendedWater)}/day (weight × 35, or 2000 ml)
+              Recommended ~{formatMlExact(recommendedWater)}/day (weight Ã— 35, or 2000 ml)
             </span>
             <button
               type="button"
@@ -318,11 +341,11 @@ export default function SettingsPage({ onToast, onReset }: Props): React.JSX.Ele
       <div className="panel">
         <div className="panel-header">
           <h2>Daily mineral goals</h2>
-          <span className="badge-soft">Adult defaults · AU/NZ NRV-ish</span>
+          <span className="badge-soft">Adult defaults Â· AU/NZ NRV-ish</span>
         </div>
         <p className="muted small" style={{ marginTop: 0 }}>
-          Defaults follow general adult AU/NZ NRV / WHO guidance (sodium ≈ 2000 mg suggested
-          target; iron/zinc mid-range). Override any value below. Selenium and iodine are in µg;
+          Defaults follow general adult AU/NZ NRV / WHO guidance (sodium â‰ˆ 2000 mg suggested
+          target; iron/zinc mid-range). Override any value below. Selenium and iodine are in Âµg;
           others in mg.
         </p>
         <div className="form-grid">
@@ -350,14 +373,14 @@ export default function SettingsPage({ onToast, onReset }: Props): React.JSX.Ele
         </div>
         <p className="muted">
           Export or import the full local JSON store (settings, foods, diary, water, weight, exercise).
-          Everything stays on this PC — no accounts, no paywalls.
+          Everything stays on this PC â€” no accounts, no paywalls.
         </p>
         <div className="row-actions" style={{ marginTop: 12 }}>
           <button type="button" className="btn" onClick={() => void doExport()}>
-            Export JSON…
+            Export JSONâ€¦
           </button>
           <button type="button" className="btn" onClick={() => void doImport()}>
-            Import JSON…
+            Import JSONâ€¦
           </button>
           <button type="button" className="btn danger" onClick={() => void doReset()}>
             Reset all data
@@ -367,13 +390,40 @@ export default function SettingsPage({ onToast, onReset }: Props): React.JSX.Ele
 
       <div className="panel">
         <div className="panel-header">
+          <h2>Updates</h2>
+          {appVersion ? <span className="badge-soft">v{appVersion}</span> : null}
+        </div>
+        <p className="muted">
+          Installed builds can check GitHub for a newer MyHealth release. Dev mode does not
+          auto-update. Publishing a GitHub Release with the setup.exe is required for updates to
+          appear.
+        </p>
+        <div className="row-actions" style={{ marginTop: 12 }}>
+          <button
+            type="button"
+            className="btn"
+            disabled={updateBusy}
+            onClick={() => void doCheckUpdates()}
+          >
+            {updateBusy ? 'Checking...' : 'Check for updates'}
+          </button>
+        </div>
+        {updateMsg ? (
+          <p className="muted small" style={{ marginTop: 10 }}>
+            {updateMsg}
+          </p>
+        ) : null}
+      </div>
+
+      <div className="panel">
+        <div className="panel-header">
           <h2>About</h2>
         </div>
         <p>
-          <strong>MyHealth</strong> — Food · Weight · Balance
+          <strong>MyHealth</strong> â€” Food Â· Weight Â· Balance
         </p>
         <p className="muted">
-          RevoCon™ · L.W. · Free local desktop tracker
+          RevoConâ„¢ Â· L.W. Â· Free local desktop tracker
         </p>
       </div>
     </div>

@@ -1,4 +1,4 @@
-# MyHealth
+﻿# MyHealth
 
 Food, weight and balance tracker for Windows. Local-only JSON storage. No accounts. No paywalls.
 
@@ -9,10 +9,26 @@ Food, weight and balance tracker for Windows. Local-only JSON storage. No accoun
 - Node.js 20+ (or current LTS)
 - Windows 10/11
 
-## Setup
+## Install on another PC (recommended)
+
+1. Download `MyHealth-*-setup.exe` from the [GitHub Releases](https://github.com/linwu-droid/MyHealth-LW/releases) page (or copy the file from `release\` after a local build).
+2. Run the setup. Shortcuts named **MyHealth** are created on the Desktop and Start Menu.
+3. App data stays on that PC under `%APPDATA%\myhealth\`.
+
+### Data policy
+
+| Situation | Data |
+|-----------|------|
+| First run on a PC | Fresh local data (seed foods / migrations OK) |
+| Reinstall / upgrade on the **same** PC | **Kept** (uninstall does not delete AppData) |
+| Copy the installer to a **new** PC | **Wiped** — machine fingerprint mismatch resets AppData |
+
+Data never leaves the PC unless you Export JSON yourself.
+
+## Setup (dev)
 
 ```bat
-cd C:\Users\Lin\Documents\GitHub\MyHealth-LW
+cd C:\Users\Lin\Documents\GitHub\MyHealth
 npm install
 ```
 
@@ -30,18 +46,39 @@ npm run dev
 npm run typecheck
 ```
 
-## Build installer
+## Build Windows installer
 
 ```bat
 npm run build:win
 ```
 
-Output goes to `release\`. Window/installer icons use `build\icon.png` (ICO optional; PNG works with electron-builder).
+Output: `release\MyHealth-<version>-setup.exe`
+
+Or bump the patch version and build in one step:
+
+```bat
+npm run dist
+npm run release:win
+```
+
+(`dist` / `release:win` run `npm version patch --no-git-tag-version` then `build:win`.)
+
+### Ship an update
+
+1. Bump `version` in `package.json` (or use `npm run dist`).
+2. Run `npm run build:win`.
+3. Create a **GitHub Release** on `linwu-droid/MyHealth-LW` for that version tag and upload the files from `release\` (at least the `-setup.exe` and the `.yml` / blockmap artifacts electron-builder emits).
+4. Installed apps check GitHub on launch (quiet) and via **Settings → Check for updates**.
+
+Without a GitHub Release containing those artifacts, auto-update cannot find a newer build.
+
+NSIS upgrades replace app files and **do not** wipe AppData (`deleteAppDataOnUninstall: false`, same `appId`).
 
 ## Stack
 
 - electron-vite + React + TypeScript
-- Data file: `%APPDATA%\myhealth-lw\myhealth-lw.json` (Electron `userData`)
+- electron-updater (GitHub provider)
+- Data file: `%APPDATA%\myhealth\myhealth.json` (migrated once from `%APPDATA%\myhealth-lw\` on the same PC)
 
 ## Features
 
@@ -52,7 +89,7 @@ Output goes to `release\`. Window/installer icons use `build\icon.png` (ICO opti
 - **Shopping list** with portion recommendations vs your macro goals
 - Weight log (kg stored; lb display toggle)
 - Exercise log (burns subtract from remaining)
-- Settings, export/import, reset
+- Health profile, Settings, export/import, reset, Check for updates
 
 ## Online nutrition import
 
