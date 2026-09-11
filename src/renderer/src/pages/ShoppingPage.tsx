@@ -1,4 +1,4 @@
-﻿import type React from 'react'
+import type React from 'react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type {
   Food,
@@ -577,6 +577,7 @@ export default function ShoppingPage({ onToast }: Props): React.JSX.Element {
         <div className="portion-section">
           <PlateVisual
             plan={plan}
+            shoppingNames={items.map((i) => i.name)}
             onToast={onToast}
             mode={plateMode}
             onModeChange={setPlateMode}

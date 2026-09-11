@@ -42,6 +42,7 @@ import {
 import {
   fetchCommonFoodsPack,
   fetchDrinksPack,
+  fetchFoodImageUrl,
   fetchHomemadeFoodsPack,
   fetchSupermarketFoodsPack,
   searchOpenFoodFacts,
@@ -116,6 +117,13 @@ function registerIpc(getWindow: () => BrowserWindow | null): void {
   ipcMain.handle('foods:delete', (_e, id: string) => deleteFood(id))
 
   ipcMain.handle('nutrition:search', async (_e, query: string) => searchOpenFoodFacts(query))
+  ipcMain.handle('nutrition:foodImage', async (_e, name: string) => {
+    try {
+      return await fetchFoodImageUrl(typeof name === 'string' ? name : '')
+    } catch {
+      return null
+    }
+  })
   ipcMain.handle('nutrition:importMany', (_e, foods: Omit<Food, 'id'>[]) =>
     createFoodsBulk(Array.isArray(foods) ? foods : [])
   )

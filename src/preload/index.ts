@@ -45,6 +45,8 @@ const api = {
 
   searchNutrition: (query: string): Promise<OnlineFoodCandidate[]> =>
     ipcRenderer.invoke('nutrition:search', query),
+  foodImage: (name: string): Promise<string | null> =>
+    ipcRenderer.invoke('nutrition:foodImage', name),
   importFoodsMany: (foods: Omit<Food, 'id'>[]): Promise<BulkImportResult> =>
     ipcRenderer.invoke('nutrition:importMany', foods),
   importCommonFoodsPack: (): Promise<CommonPackImportResult> =>

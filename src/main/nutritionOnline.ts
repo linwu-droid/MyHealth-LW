@@ -1,4 +1,4 @@
-﻿import type { Food, OnlineFoodCandidate } from '../shared/types'
+import type { Food, OnlineFoodCandidate } from '../shared/types'
 import {
   normalizeMinerals,
   roundMineral,
@@ -57,6 +57,10 @@ type OffProduct = {
   brands?: string
   serving_size?: string
   nutriments?: OffNutriments
+  image_front_small_url?: string
+  image_front_url?: string
+  image_url?: string
+  image_small_url?: string
 }
 
 type OffSearchResponse = {
@@ -269,6 +273,88 @@ export async function searchOpenFoodFacts(
     out.push(food)
   })
   return out
+}
+
+/** In-memory cache: lowercased food name -> image URL or null (miss / no image). */
+const foodImageCache = new Map<string, string | null>()
+let foodImageLastAt = 0
+let foodImageChain: Promise<unknown> = Promise.resolve()
+
+function pickOffImageUrl(p: OffProduct): string | null {
+  const url =
+    (p.image_front_small_url || p.image_front_url || p.image_url || p.image_small_url || '').trim()
+  return url || null
+}
+
+/**
+ * Look up a product front image on Open Food Facts for plate collage use.
+ * Rate-limited, cached by lowercased name, ~4s timeout; never throws.
+ */
+export async function fetchFoodImageUrl(name: string): Promise<string | null> {
+  const key = name.trim().toLowerCase()
+  if (!key) return null
+  if (foodImageCache.has(key)) return foodImageCache.get(key) ?? null
+
+  const run = async (): Promise<string | null> => {
+    const gap = Math.max(0, 220 - (Date.now() - foodImageLastAt))
+    if (gap > 0) await sleep(gap)
+    foodImageLastAt = Date.now()
+
+    const url = new URL(OFF_SEARCH)
+    url.searchParams.set('search_terms', key)
+    url.searchParams.set('search_simple', '1')
+    url.searchParams.set('action', 'process')
+    url.searchParams.set('json', '1')
+    url.searchParams.set('page_size', '8')
+    url.searchParams.set('page', '1')
+    url.searchParams.set(
+      'fields',
+      'product_name,product_name_en,image_front_small_url,image_front_url,image_url,image_small_url'
+    )
+
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 4000)
+    try {
+      const res = await fetch(url.toString(), {
+        headers: {
+          'User-Agent': USER_AGENT,
+          Accept: 'application/json'
+        },
+        signal: controller.signal
+      })
+      if (!res.ok) {
+        foodImageCache.set(key, null)
+        return null
+      }
+      const data = (await res.json()) as OffSearchResponse
+      const products = Array.isArray(data.products) ? data.products : []
+      for (const p of products) {
+        const img = pickOffImageUrl(p)
+        if (img) {
+          foodImageCache.set(key, img)
+          return img
+        }
+      }
+      foodImageCache.set(key, null)
+      return null
+    } catch {
+      foodImageCache.set(key, null)
+      return null
+    } finally {
+      clearTimeout(timer)
+    }
+  }
+
+  const queued = foodImageChain.then(run, run)
+  foodImageChain = queued.then(
+    () => undefined,
+    () => undefined
+  )
+  try {
+    return await queued
+  } catch {
+    return null
+  }
 }
 
 /** Everyday search terms used to assemble a small common-foods pack (not a full corpus dump). */
