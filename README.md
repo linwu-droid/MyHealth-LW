@@ -25,6 +25,8 @@ Food, weight and balance tracker for Windows. Local-only JSON storage. No accoun
 
 Data never leaves the PC unless you Export JSON yourself.
 
+The curated food/nutrition catalog ships inside the app binary; diary entries and settings stay in AppData per PC.
+
 ## Setup (dev)
 
 ```bat
