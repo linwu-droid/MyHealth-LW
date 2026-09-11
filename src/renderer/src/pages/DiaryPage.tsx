@@ -561,7 +561,7 @@ export default function DiaryPage({ onToast }: Props): React.JSX.Element {
             <div className="panel-header">
               <h2>{m.label}</h2>
               <span className="muted">
-                {Math.round(totals.kcal)} kcal / Protein {Math.round(totals.protein)} g {'\u00b7'}{' '}
+                {Math.round(totals.kcal)} kcal / Protein {Math.round(totals.protein)} g /{' '}
                 Carbohydrate {Math.round(totals.carbs)} g / Fat {Math.round(totals.fat)} g
               </span>
               <div className="spacer" />
