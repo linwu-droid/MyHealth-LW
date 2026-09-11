@@ -1,4 +1,6 @@
 import type { MineralKey, MineralMap } from './minerals'
+import type { PortionUnit } from './portionUnits'
+export type { PortionUnit } from './portionUnits'
 export type { MineralKey, MineralMap } from './minerals'
 export { MINERAL_KEYS, MINERAL_META, defaultMineralGoals } from './minerals'
 
@@ -45,6 +47,10 @@ export interface DiaryEntry {
   foodId?: string
   name: string
   servingQty: number
+  /** User-entered amount (with portionUnit); display only. */
+  portionAmount?: number
+  /** User-entered unit; display only. servingQty remains the macro scale factor. */
+  portionUnit?: PortionUnit
   kcal: number
   protein: number
   carbs: number

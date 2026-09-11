@@ -1,4 +1,4 @@
-﻿import { app, dialog, BrowserWindow } from 'electron'
+import { app, dialog, BrowserWindow } from 'electron'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import { randomUUID } from 'crypto'
@@ -553,6 +553,11 @@ export function addDiary(
       minerals = scaleMinerals(food.minerals, Number(input.servingQty) || 1)
     }
   }
+  const portionAmount =
+    input.portionAmount !== undefined && input.portionAmount !== null
+      ? Number(input.portionAmount)
+      : undefined
+  const portionUnit = input.portionUnit
   const entry: DiaryEntry = {
     id: randomUUID(),
     date: input.date.slice(0, 10),
@@ -560,6 +565,10 @@ export function addDiary(
     foodId: input.foodId,
     name: input.name.trim(),
     servingQty: Number(input.servingQty) || 1,
+    ...(portionAmount !== undefined && Number.isFinite(portionAmount)
+      ? { portionAmount }
+      : {}),
+    ...(portionUnit ? { portionUnit } : {}),
     kcal: Number(input.kcal) || 0,
     protein: Number(input.protein) || 0,
     carbs: Number(input.carbs) || 0,

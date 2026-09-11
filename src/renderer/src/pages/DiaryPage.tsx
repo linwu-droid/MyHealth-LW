@@ -1,6 +1,12 @@
-﻿import React, { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
+import React, { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import type { DiaryEntry, Food, MealType } from '../../../shared/types'
 import { scaleMinerals } from '../../../shared/minerals'
+import {
+  formatPortion,
+  parseServingGrams,
+  portionToServingQty,
+  type PortionUnit
+} from '../../../shared/portionUnits'
 import { todayIso } from '../lib/format'
 import NutritionDetail from '../lib/NutritionDetail'
 
@@ -11,6 +17,18 @@ const MEALS: { id: MealType; label: string }[] = [
   { id: 'lunch', label: 'Lunch' },
   { id: 'dinner', label: 'Dinner' },
   { id: 'snacks', label: 'Snacks' }
+]
+
+const FOOD_UNITS: { id: PortionUnit; label: string }[] = [
+  { id: 'servings', label: 'servings' },
+  { id: 'g', label: 'g' },
+  { id: 'kg', label: 'kg' },
+  { id: 'each', label: 'each' }
+]
+
+const CUSTOM_UNITS: { id: PortionUnit; label: string }[] = [
+  { id: 'servings', label: 'servings' },
+  { id: 'each', label: 'each' }
 ]
 
 function sum(entries: DiaryEntry[]): { kcal: number; protein: number; carbs: number; fat: number } {
@@ -25,6 +43,13 @@ function sum(entries: DiaryEntry[]): { kcal: number; protein: number; carbs: num
   )
 }
 
+function qtyLabel(e: DiaryEntry): string {
+  if (e.portionAmount != null && e.portionUnit) {
+    return formatPortion(e.portionAmount, e.portionUnit)
+  }
+  return `${e.servingQty} servings`
+}
+
 export default function DiaryPage({ onToast }: Props): React.JSX.Element {
   const [date, setDate] = useState(todayIso())
   const [entries, setEntries] = useState<DiaryEntry[]>([])
@@ -37,7 +62,8 @@ export default function DiaryPage({ onToast }: Props): React.JSX.Element {
   const [allFoods, setAllFoods] = useState<Food[]>([])
   const [foodsLoading, setFoodsLoading] = useState(false)
   const [selectedFoodId, setSelectedFoodId] = useState('')
-  const [qty, setQty] = useState('1')
+  const [amount, setAmount] = useState('1')
+  const [unit, setUnit] = useState<PortionUnit>('servings')
   const [custom, setCustom] = useState({
     name: '',
     kcal: '',
@@ -106,12 +132,36 @@ export default function DiaryPage({ onToast }: Props): React.JSX.Element {
     return m
   }, [allFoods, foods])
 
+  const selectedFood = useMemo(
+    () => foods.find((f) => f.id === selectedFoodId) ?? foodById.get(selectedFoodId),
+    [foods, foodById, selectedFoodId]
+  )
+
+  const selectedGrams = useMemo(
+    () => (selectedFood ? parseServingGrams(selectedFood.servingLabel) : null),
+    [selectedFood]
+  )
+
+  const portionPreview = useMemo(() => {
+    if (!selectedFood || mode !== 'db') return null
+    const amt = Number(amount) || 0
+    if (amt <= 0) return null
+    const { qty, error } = portionToServingQty({
+      amount: amt,
+      unit,
+      servingLabel: selectedFood.servingLabel
+    })
+    if (error) return { error, kcal: null as number | null, qty: null as number | null }
+    return { error: undefined as string | undefined, kcal: selectedFood.kcal * qty, qty }
+  }, [selectedFood, amount, unit, mode])
+
   function openAdd(forMeal?: MealType): void {
     if (forMeal) setMeal(forMeal)
     setMode('db')
     setQuery('')
     setSelectedFoodId('')
-    setQty('1')
+    setAmount('1')
+    setUnit('servings')
     setShowAdd(true)
     // Kick an immediate full-list load
     void window.api
@@ -126,23 +176,35 @@ export default function DiaryPage({ onToast }: Props): React.JSX.Element {
       onToast('Pick a food from the list')
       return
     }
-    const q = Number(qty) || 1
+    const amt = Number(amount) || 0
+    const { qty, error } = portionToServingQty({
+      amount: amt,
+      unit,
+      servingLabel: food.servingLabel
+    })
+    if (error) {
+      onToast(error)
+      return
+    }
     await window.api.addDiary({
       date,
       meal,
       foodId: food.id,
       name: food.brand ? `${food.name} (${food.brand})` : food.name,
-      servingQty: q,
-      kcal: food.kcal * q,
-      protein: food.protein * q,
-      carbs: food.carbs * q,
-      fat: food.fat * q,
-      minerals: scaleMinerals(food.minerals, q)
+      servingQty: qty,
+      portionAmount: amt,
+      portionUnit: unit,
+      kcal: food.kcal * qty,
+      protein: food.protein * qty,
+      carbs: food.carbs * qty,
+      fat: food.fat * qty,
+      minerals: scaleMinerals(food.minerals, qty)
     })
     onToast('Added to diary')
     setShowAdd(false)
     setSelectedFoodId('')
-    setQty('1')
+    setAmount('1')
+    setUnit('servings')
     await reload()
   }
 
@@ -151,7 +213,9 @@ export default function DiaryPage({ onToast }: Props): React.JSX.Element {
       onToast('Name is required')
       return
     }
-    const q = Number(qty) || 1
+    const customUnit: PortionUnit = unit === 'each' ? 'each' : 'servings'
+    const amt = Number(amount) || 1
+    const q = amt
     const name = custom.name.trim()
     const kcalEach = Number(custom.kcal) || 0
     const proteinEach = Number(custom.protein) || 0
@@ -189,6 +253,8 @@ export default function DiaryPage({ onToast }: Props): React.JSX.Element {
       foodId,
       name,
       servingQty: q,
+      portionAmount: amt,
+      portionUnit: customUnit,
       kcal: kcalEach * q,
       protein: proteinEach * q,
       carbs: carbsEach * q,
@@ -198,6 +264,8 @@ export default function DiaryPage({ onToast }: Props): React.JSX.Element {
     else if (!custom.name) onToast('Added to diary')
     setShowAdd(false)
     setCustom({ name: '', kcal: '', protein: '', carbs: '', fat: '' })
+    setAmount('1')
+    setUnit('servings')
     await reload()
   }
 
@@ -206,6 +274,8 @@ export default function DiaryPage({ onToast }: Props): React.JSX.Element {
     onToast('Entry removed')
     await reload()
   }
+
+  const unitOptions = mode === 'custom' ? CUSTOM_UNITS : FOOD_UNITS
 
   return (
     <div>
@@ -231,7 +301,7 @@ export default function DiaryPage({ onToast }: Props): React.JSX.Element {
         </div>
         <div className="card">
           <div className="label">Exercise</div>
-          <div className="value">âˆ’{Math.round(exerciseKcal)}</div>
+          <div className="value">{'\u2212'}{Math.round(exerciseKcal)}</div>
         </div>
         <div className="card">
           <div className="label">Remaining</div>
@@ -242,7 +312,7 @@ export default function DiaryPage({ onToast }: Props): React.JSX.Element {
         <div className="card">
           <div className="label">Protein / Carbohydrate / Fat</div>
           <div className="value small-value">
-            {Math.round(dayTotals.protein)} g Â· {Math.round(dayTotals.carbs)} g Â·{' '}
+            {Math.round(dayTotals.protein)} g {'\u00b7'} {Math.round(dayTotals.carbs)} g {'\u00b7'}{' '}
             {Math.round(dayTotals.fat)} g
           </div>
         </div>
@@ -273,15 +343,29 @@ export default function DiaryPage({ onToast }: Props): React.JSX.Element {
               </select>
             </label>
             <label>
-              Servings
+              Amount
               <input
                 className="input"
                 type="number"
                 min="0.5"
                 step="0.5"
-                value={qty}
-                onChange={(e) => setQty(e.target.value)}
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
               />
+            </label>
+            <label>
+              Unit
+              <select
+                className="input"
+                value={unitOptions.some((u) => u.id === unit) ? unit : 'servings'}
+                onChange={(e) => setUnit(e.target.value as PortionUnit)}
+              >
+                {unitOptions.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.label}
+                  </option>
+                ))}
+              </select>
             </label>
             <div className="full row-actions">
               <button
@@ -298,7 +382,10 @@ export default function DiaryPage({ onToast }: Props): React.JSX.Element {
               <button
                 type="button"
                 className={`btn ${mode === 'custom' ? 'primary' : ''}`}
-                onClick={() => setMode('custom')}
+                onClick={() => {
+                  setMode('custom')
+                  if (unit === 'g' || unit === 'kg') setUnit('servings')
+                }}
               >
                 Quick custom
               </button>
@@ -313,11 +400,32 @@ export default function DiaryPage({ onToast }: Props): React.JSX.Element {
                   className="input"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Type to filterâ€¦ (all foods shown when empty)"
+                  placeholder={'Type to filter\u2026 (all foods shown when empty)'}
                 />
               </label>
+              {selectedFood ? (
+                <p className="muted small" style={{ marginTop: 0 }}>
+                  Food serving: {selectedFood.servingLabel}
+                  {selectedGrams != null ? ` \u00b7 \u2248 ${selectedGrams} g per serving` : ''}
+                  {portionPreview?.error ? (
+                    <>
+                      <br />
+                      <span className="danger">{portionPreview.error}</span>
+                    </>
+                  ) : portionPreview?.kcal != null ? (
+                    <>
+                      <br />
+                      Estimated: ~{Math.round(portionPreview.kcal)} kcal for{' '}
+                      {formatPortion(Number(amount) || 0, unit)}
+                      {portionPreview.qty != null && unit !== 'servings' && unit !== 'each'
+                        ? ` (\u2248 ${Math.round(portionPreview.qty * 100) / 100} servings)`
+                        : ''}
+                    </>
+                  ) : null}
+                </p>
+              ) : null}
               {foodsLoading && foods.length === 0 ? (
-                <p className="muted">Loading foodsâ€¦</p>
+                <p className="muted">Loading foods{'\u2026'}</p>
               ) : foods.length === 0 ? (
                 <div className="empty">
                   <h3>No foods in your database</h3>
@@ -356,7 +464,7 @@ export default function DiaryPage({ onToast }: Props): React.JSX.Element {
                           </td>
                           <td>
                             {f.name}
-                            {f.brand ? ` Â· ${f.brand}` : ''}
+                            {f.brand ? ` \u00b7 ${f.brand}` : ''}
                           </td>
                           <td>{f.servingLabel}</td>
                           <td>{f.kcal}</td>
@@ -368,7 +476,9 @@ export default function DiaryPage({ onToast }: Props): React.JSX.Element {
                     </tbody>
                   </table>
                   {foods.length > 80 ? (
-                    <p className="muted small">Showing first 80 of {foods.length} â€” refine search.</p>
+                    <p className="muted small">
+                      Showing first 80 of {foods.length} {'\u2014'} refine search.
+                    </p>
                   ) : (
                     <p className="muted small">{foods.length} foods available</p>
                   )}
@@ -431,8 +541,8 @@ export default function DiaryPage({ onToast }: Props): React.JSX.Element {
               </label>
               <div className="full">
                 <p className="muted small" style={{ marginTop: 0 }}>
-                  Custom entries are also saved into your Foods database (unless the same name
-                  already exists) so you can reuse them later.
+                  Custom entries use servings or each (no gram label). They are also saved into your
+                  Foods database (unless the same name already exists) so you can reuse them later.
                 </p>
                 <button type="button" className="btn primary" onClick={() => void addCustom()}>
                   Add custom
@@ -451,8 +561,8 @@ export default function DiaryPage({ onToast }: Props): React.JSX.Element {
             <div className="panel-header">
               <h2>{m.label}</h2>
               <span className="muted">
-                {Math.round(totals.kcal)} kcal Â· Protein {Math.round(totals.protein)} g Â·
-                Carbohydrate {Math.round(totals.carbs)} g Â· Fat {Math.round(totals.fat)} g
+                {Math.round(totals.kcal)} kcal {'\u00b7'} Protein {Math.round(totals.protein)} g {'\u00b7'}{' '}
+                Carbohydrate {Math.round(totals.carbs)} g {'\u00b7'} Fat {Math.round(totals.fat)} g
               </span>
               <div className="spacer" />
               <button type="button" className="btn compact" onClick={() => openAdd(m.id)}>
@@ -480,7 +590,7 @@ export default function DiaryPage({ onToast }: Props): React.JSX.Element {
                       <Fragment key={e.id}>
                         <tr>
                           <td>{e.name}</td>
-                          <td>{e.servingQty}</td>
+                          <td>{qtyLabel(e)}</td>
                           <td>{Math.round(e.kcal)}</td>
                           <td>{Math.round(e.protein)}</td>
                           <td>{Math.round(e.carbs)}</td>
@@ -513,7 +623,7 @@ export default function DiaryPage({ onToast }: Props): React.JSX.Element {
                                 onClose={() => setDetailId(null)}
                                 data={{
                                   name: e.name,
-                                  servingLabel: `${e.servingQty} Ã— serving`,
+                                  servingLabel: qtyLabel(e),
                                   servingQty: e.servingQty,
                                   kcal: e.kcal,
                                   protein: e.protein,
