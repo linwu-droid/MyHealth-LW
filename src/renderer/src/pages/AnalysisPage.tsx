@@ -1,4 +1,4 @@
-import type React from 'react'
+﻿import type React from 'react'
 import { useEffect, useState } from 'react'
 import type { MacroVsGoal, MealType, MineralKey, NutritionAnalysis } from '../../../shared/types'
 import { MINERAL_KEYS, MINERAL_META } from '../../../shared/minerals'
@@ -161,15 +161,15 @@ export default function AnalysisPage({ onToast }: Props): React.JSX.Element {
               : ''}
           </p>
         </div>
-        <div className="row-actions">
-          <label className="block-label" style={{ marginTop: 0 }}>
+        <div className="analysis-date-export">
+          <label className="block-label" style={{ marginTop: 0, textAlign: 'center' }}>
             Date
             <input
               className="input"
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              style={{ marginTop: 4, minWidth: 150 }}
+              style={{ marginTop: 4, minWidth: 150, display: 'block' }}
             />
           </label>
           <button
@@ -178,7 +178,7 @@ export default function AnalysisPage({ onToast }: Props): React.JSX.Element {
             disabled={exportingPdf || !analysis}
             onClick={() => void handleExportPdf()}
           >
-            {exportingPdf ? 'Exporting…' : 'Export PDF'}
+            {exportingPdf ? 'Exporting...' : 'Export PDF'}
           </button>
         </div>
       </div>
