@@ -93,6 +93,30 @@ export interface WaterLog {
   createdAt: string // ISO
 }
 
+
+export type HealthItemKind = 'allergy' | 'intolerance' | 'restriction' | 'other'
+export type HealthItemSource = 'manual' | 'report'
+
+export interface HealthRestriction {
+  id: string
+  label: string
+  kind: HealthItemKind
+  aliases?: string[]
+  source?: HealthItemSource
+  notes?: string
+  /** When false, ignored for matching / recommendations. Default true. */
+  enabled?: boolean
+}
+
+export interface HealthProfile {
+  restrictions: HealthRestriction[]
+  notes?: string
+  reportExcerpt?: string
+  avoidKeywords?: string[]
+  preferKeywords?: string[]
+  updatedAt?: string
+}
+
 export interface AppData {
   version: number
   settings: AppSettings
@@ -102,6 +126,7 @@ export interface AppData {
   exercises: Exercise[]
   shoppingList: ShoppingListItem[]
   waterLogs: WaterLog[]
+  healthProfile: HealthProfile
 }
 
 export interface MacroTotals {

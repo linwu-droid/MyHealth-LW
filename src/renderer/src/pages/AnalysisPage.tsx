@@ -4,6 +4,7 @@ import type { MacroVsGoal, MealType, MineralKey, NutritionAnalysis } from '../..
 import { MINERAL_KEYS, MINERAL_META } from '../../../shared/minerals'
 import { formatMlExact, waterTip } from '../../../shared/water'
 import { todayIso } from '../lib/format'
+import { flagDiaryEntries } from '../../../shared/health'
 
 type Props = { onToast: (msg: string) => void }
 
@@ -117,6 +118,44 @@ export default function AnalysisPage({ onToast }: Props): React.JSX.Element {
   const [waterActualMl, setWaterActualMl] = useState(0)
   const [waterGoalMl, setWaterGoalMl] = useState(2000)
   const [waterDaysLogged, setWaterDaysLogged] = useState(0)
+  const [dayRedFlagSummary, setDayRedFlagSummary] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (days !== 1) {
+      setDayRedFlagSummary(null)
+      return
+    }
+    let cancelled = false
+    void (async () => {
+      try {
+        const [entries, foods, health] = await Promise.all([
+          window.api.listDiary(date),
+          window.api.listFoods(''),
+          window.api.getHealthProfile()
+        ])
+        if (cancelled) return
+        const map = new Map(foods.map((f) => [f.id, f]))
+        const flags = flagDiaryEntries(entries, map, health)
+        if (flags.length === 0) {
+          setDayRedFlagSummary(null)
+          return
+        }
+        const labels = [...new Set(flags.flatMap((f) => f.hits.map((h) => h.label)))]
+        setDayRedFlagSummary(
+          flags.length +
+            ' diary entr' +
+            (flags.length === 1 ? 'y' : 'ies') +
+            ' may conflict with Health profile: ' +
+            labels.join(', ')
+        )
+      } catch {
+        if (!cancelled) setDayRedFlagSummary(null)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [date, days])
 
   useEffect(() => {
     let cancelled = false
@@ -260,6 +299,11 @@ export default function AnalysisPage({ onToast }: Props): React.JSX.Element {
 
       {analysis && (
         <>
+          {days === 1 && dayRedFlagSummary && (
+            <div className="analysis-health-warn" role="status">
+              <strong>Health:</strong> {dayRedFlagSummary}
+            </div>
+          )}
           <div className="cards">
             <div className="card">
               <div className="label">Calories</div>

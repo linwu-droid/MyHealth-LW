@@ -13,6 +13,8 @@ import {
 } from '../../../shared/portionUnits'
 import { todayIso } from '../lib/format'
 import NutritionDetail from '../lib/NutritionDetail'
+import type { HealthProfile } from '../../../shared/types'
+import { flagDiaryEntries, type DiaryRedFlag } from '../../../shared/health'
 
 type Props = { onToast: (msg: string) => void }
 
@@ -82,15 +84,17 @@ export default function DiaryPage({ onToast }: Props): React.JSX.Element {
   })
   const [mode, setMode] = useState<'db' | 'custom'>('db')
   const [detailId, setDetailId] = useState<string | null>(null)
+  const [healthProfile, setHealthProfile] = useState<HealthProfile | null>(null)
 
   const reload = useCallback(async () => {
-    const [list, dash, settings, waters, goal, recommended] = await Promise.all([
+    const [list, dash, settings, waters, goal, recommended, health] = await Promise.all([
       window.api.listDiary(date),
       window.api.getDashboard(date),
       window.api.getSettings(),
       window.api.listWater(date),
       window.api.getWaterGoalMl(),
-      window.api.getRecommendedWaterMl()
+      window.api.getRecommendedWaterMl(),
+      window.api.getHealthProfile()
     ])
     setEntries(list)
     setExerciseKcal(dash.exerciseKcal)
@@ -98,6 +102,7 @@ export default function DiaryPage({ onToast }: Props): React.JSX.Element {
     setWaterLogs(waters)
     setWaterGoalMl(goal)
     setRecommendedWaterMl(recommended)
+    setHealthProfile(health)
   }, [date])
 
   useEffect(() => {
@@ -146,6 +151,19 @@ export default function DiaryPage({ onToast }: Props): React.JSX.Element {
   }, [showAdd])
 
   const dayTotals = useMemo(() => sum(entries), [entries])
+
+  const redFlags = useMemo((): DiaryRedFlag[] => {
+    if (!healthProfile) return []
+    const foodsMap = new Map<string, { name: string; brand?: string }>()
+    for (const f of allFoods) foodsMap.set(f.id, f)
+    return flagDiaryEntries(entries, foodsMap, healthProfile)
+  }, [entries, allFoods, healthProfile])
+
+  const redFlagByEntry = useMemo(() => {
+    const m = new Map<string, DiaryRedFlag>()
+    for (const f of redFlags) m.set(f.entryId, f)
+    return m
+  }, [redFlags])
   const remaining = calorieGoal - dayTotals.kcal + exerciseKcal
 
   const foodById = useMemo(() => {
@@ -368,6 +386,20 @@ export default function DiaryPage({ onToast }: Props): React.JSX.Element {
           </div>
         </div>
       </div>
+
+      {redFlags.length > 0 && (
+        <div className="red-flag-banner" role="alert">
+          <div>
+            <strong>Health red flags:</strong> {redFlags.length} entr
+            {redFlags.length === 1 ? 'y' : 'ies'} may conflict with your profile
+            {' — '}
+            {[...new Set(redFlags.flatMap((f) => f.hits.map((h) => h.label)))].join(', ')}
+            <div className="muted small" style={{ marginTop: 4 }}>
+              Matched: {redFlags.map((f) => f.entryName).join('; ')}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="panel" style={{ marginTop: 16 }}>
         <div className="panel-header">
@@ -728,10 +760,22 @@ export default function DiaryPage({ onToast }: Props): React.JSX.Element {
                     </tr>
                   </thead>
                   <tbody>
-                    {mealEntries.map((e) => (
+                    {mealEntries.map((e) => {
+                      const flag = redFlagByEntry.get(e.id)
+                      return (
                       <Fragment key={e.id}>
-                        <tr>
-                          <td>{e.name}</td>
+                        <tr className={flag ? 'red-flag-row' : undefined}>
+                          <td>
+                            {e.name}
+                            {flag ? (
+                              <span
+                                className="red-flag-badge"
+                                title={flag.hits.map((h) => h.label + ' (' + h.matchedAlias + ')').join(', ')}
+                              >
+                                Red flag · {flag.hits.map((h) => h.label).join(', ')}
+                              </span>
+                            ) : null}
+                          </td>
                           <td>{qtyLabel(e)}</td>
                           <td>{Math.round(e.kcal)}</td>
                           <td>{Math.round(e.protein)}</td>
@@ -802,7 +846,7 @@ export default function DiaryPage({ onToast }: Props): React.JSX.Element {
                           </tr>
                         ) : null}
                       </Fragment>
-                    ))}
+                    )})}
                   </tbody>
                 </table>
               </div>

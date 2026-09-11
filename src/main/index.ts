@@ -37,7 +37,11 @@ import {
   updateDiary,
   updateFood,
   updateSettings,
-  updateShopping
+  updateShopping,
+  getHealthProfile,
+  updateHealthProfile,
+  extractHealthFromText,
+  importHealthReportFile
 } from './store'
 import {
   fetchCommonFoodsPack,
@@ -58,7 +62,8 @@ import type {
   Food,
   MealType,
   PortionPlan,
-  ShoppingListItem
+  ShoppingListItem,
+  HealthProfile
 } from '../shared/types'
 
 function createWindow(): BrowserWindow {
@@ -235,6 +240,11 @@ function registerIpc(getWindow: () => BrowserWindow | null): void {
   ipcMain.handle('data:export', () => exportDataToFile(getWindow()))
   ipcMain.handle('data:import', () => importDataFromFile(getWindow()))
   ipcMain.handle('data:reset', () => resetData())
+
+  ipcMain.handle('health:get', () => getHealthProfile())
+  ipcMain.handle('health:update', (_e, patch: Partial<HealthProfile>) => updateHealthProfile(patch ?? {}))
+  ipcMain.handle('health:extractFromText', (_e, text: string) => extractHealthFromText(text))
+  ipcMain.handle('health:importFile', () => importHealthReportFile(getWindow()))
 
   ipcMain.handle('analysis:exportPdf', (_e, days: number) =>
     exportAnalysisPdf(getWindow(), typeof days === 'number' ? days : 1)

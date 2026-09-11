@@ -11,8 +11,10 @@ import type {
   ShoppingListItem,
   WeightLog,
   WaterLog,
-  NutritionAnalysis
+  NutritionAnalysis,
+  HealthProfile
 } from '../shared/types'
+import type { ExtractCandidate } from '../shared/health'
 
 export type BulkImportResult = {
   created: number
@@ -131,7 +133,20 @@ const api = {
     dataUrl: string,
     defaultName?: string
   ): Promise<{ cancelled?: boolean; path?: string; error?: string }> =>
-    ipcRenderer.invoke('data:savePng', dataUrl, defaultName)
+    ipcRenderer.invoke('data:savePng', dataUrl, defaultName),
+
+  getHealthProfile: (): Promise<HealthProfile> => ipcRenderer.invoke('health:get'),
+  updateHealthProfile: (patch: Partial<HealthProfile>): Promise<HealthProfile> =>
+    ipcRenderer.invoke('health:update', patch),
+  extractHealthFromText: (text: string): Promise<ExtractCandidate[]> =>
+    ipcRenderer.invoke('health:extractFromText', text),
+  importHealthReportFile: (): Promise<{
+    cancelled: boolean
+    text?: string
+    error?: string
+    note?: string
+    fileName?: string
+  }> => ipcRenderer.invoke('health:importFile')
 }
 
 contextBridge.exposeInMainWorld('api', api)

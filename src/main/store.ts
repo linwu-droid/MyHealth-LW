@@ -15,8 +15,16 @@ import type {
   ShoppingListItem,
   WeightLog,
   WaterLog,
-  NutritionAnalysis
+  NutritionAnalysis,
+  HealthProfile
 } from '../shared/types'
+import {
+  emptyHealthProfile,
+  ensureHealthProfileShape,
+  extractAllergenCandidates,
+  type ExtractCandidate
+} from '../shared/health'
+import { extractTextFromPdfFile } from './pdfText'
 import { buildPortionPlan, type NutritionRef } from './portions'
 import { analyzeNutrition } from './nutritionAnalysis'
 import { getDrinkSeedInputs, getHomemadeSeedInputs, getSupermarketSeedInputs, getHealthyShelfSeedInputs, getVitaminSeedInputs } from './nutritionOnline'
@@ -29,7 +37,7 @@ import { estimateExerciseKcal, resolveMetFromName } from '../shared/exerciseMet'
 import { recommendWaterMl } from '../shared/water'
 
 const STORE_FILE = 'myhealth-lw.json'
-const DATA_VERSION = 10
+const DATA_VERSION = 11
 
 function defaultSettings(): AppSettings {
   return {
@@ -246,7 +254,8 @@ function emptyData(): AppData {
     weightLogs: [],
     exercises: [],
     shoppingList: [],
-    waterLogs: []
+    waterLogs: [],
+    healthProfile: emptyHealthProfile()
   }
 }
 
@@ -421,6 +430,12 @@ function ensureVitaminFoods(data: AppData): number {
   return created
 }
 
+/** Ensure healthProfile exists and is shaped. Does not save. */
+function ensureHealthProfile(data: AppData): HealthProfile {
+  data.healthProfile = ensureHealthProfileShape(data.healthProfile)
+  return data.healthProfile
+}
+
 function load(): AppData {
   if (cache) return cache
   const path = dataPath()
@@ -441,7 +456,8 @@ function load(): AppData {
       weightLogs: Array.isArray(raw.weightLogs) ? raw.weightLogs : [],
       exercises: Array.isArray(raw.exercises) ? raw.exercises : [],
       shoppingList: hadShoppingList ? (raw.shoppingList as ShoppingListItem[]) : [],
-      waterLogs: Array.isArray(raw.waterLogs) ? (raw.waterLogs as WaterLog[]) : []
+      waterLogs: Array.isArray(raw.waterLogs) ? (raw.waterLogs as WaterLog[]) : [],
+      healthProfile: ensureHealthProfileShape(raw.healthProfile)
     }
     // Persist migration when shoppingList was missing, version was stale, or seeds need merging.
     let migrated = !hadShoppingList || rawVersion < DATA_VERSION
@@ -504,6 +520,10 @@ function load(): AppData {
         if (n > 0) migrated = true
       }
     }
+    ensureHealthProfile(cache)
+    if (rawVersion < 11 || !raw.healthProfile) {
+      migrated = true
+    }
     if (migrated) {
       save(cache)
     }
@@ -517,6 +537,7 @@ function load(): AppData {
 function save(data: AppData): void {
   if (!Array.isArray(data.shoppingList)) data.shoppingList = []
   if (!Array.isArray(data.waterLogs)) data.waterLogs = []
+  ensureHealthProfile(data)
   data.version = DATA_VERSION
   cache = data
   writeFileSync(dataPath(), JSON.stringify(data, null, 2), 'utf8')
@@ -1104,7 +1125,8 @@ export function importData(incoming: AppData): AppData {
     weightLogs: Array.isArray(incoming.weightLogs) ? incoming.weightLogs : [],
     exercises: Array.isArray(incoming.exercises) ? incoming.exercises : [],
     shoppingList: Array.isArray(incoming.shoppingList) ? incoming.shoppingList : [],
-    waterLogs: Array.isArray(incoming.waterLogs) ? incoming.waterLogs : []
+    waterLogs: Array.isArray(incoming.waterLogs) ? incoming.waterLogs : [],
+    healthProfile: ensureHealthProfileShape(incoming.healthProfile)
   }
   save(next)
   return structuredClone(next)
@@ -1114,6 +1136,77 @@ export function resetData(): AppData {
   const next = emptyData()
   save(next)
   return structuredClone(next)
+}
+
+
+export function getHealthProfile(): HealthProfile {
+  const data = load()
+  return structuredClone(ensureHealthProfile(data))
+}
+
+export function updateHealthProfile(patch: Partial<HealthProfile>): HealthProfile {
+  const data = load()
+  const cur = ensureHealthProfile(data)
+  const next = ensureHealthProfileShape({
+    ...cur,
+    ...patch,
+    restrictions: Array.isArray(patch.restrictions) ? patch.restrictions : cur.restrictions,
+    avoidKeywords: patch.avoidKeywords !== undefined ? patch.avoidKeywords : cur.avoidKeywords,
+    preferKeywords: patch.preferKeywords !== undefined ? patch.preferKeywords : cur.preferKeywords,
+    notes: patch.notes !== undefined ? patch.notes : cur.notes,
+    reportExcerpt: patch.reportExcerpt !== undefined ? patch.reportExcerpt : cur.reportExcerpt,
+    updatedAt: new Date().toISOString()
+  })
+  data.healthProfile = next
+  save(data)
+  return structuredClone(next)
+}
+
+export function extractHealthFromText(text: string): ExtractCandidate[] {
+  return extractAllergenCandidates(typeof text === 'string' ? text : '')
+}
+
+export async function importHealthReportFile(
+  win: BrowserWindow | null
+): Promise<{ cancelled: boolean; text?: string; error?: string; note?: string; fileName?: string }> {
+  const res = await dialog.showOpenDialog(win ?? undefined!, {
+    title: 'Import health / allergy report',
+    properties: ['openFile'],
+    filters: [
+      { name: 'Text or PDF', extensions: ['txt', 'text', 'md', 'pdf'] },
+      { name: 'All files', extensions: ['*'] }
+    ]
+  })
+  if (res.canceled || !res.filePaths[0]) return { cancelled: true }
+  const filePath = res.filePaths[0]
+  const lower = filePath.toLowerCase()
+  try {
+    if (lower.endsWith('.pdf')) {
+      const text = extractTextFromPdfFile(filePath)
+      if (!text || text.length < 20) {
+        return {
+          cancelled: false,
+          text: text || '',
+          fileName: filePath,
+          note: 'Little or no text extracted from PDF (scanned/image PDFs need paste — OCR not supported).',
+          error: !text ? 'No extractable text in PDF. Paste the report text instead.' : undefined
+        }
+      }
+      return {
+        cancelled: false,
+        text,
+        fileName: filePath,
+        note: 'Extracted text from PDF (no OCR). Review candidates before merging.'
+      }
+    }
+    const text = readFileSync(filePath, 'utf8')
+    return { cancelled: false, text, fileName: filePath }
+  } catch (err) {
+    return {
+      cancelled: false,
+      error: err instanceof Error ? err.message : 'Failed to read file'
+    }
+  }
 }
 
 export async function exportDataToFile(win: BrowserWindow | null): Promise<{ cancelled: boolean; path?: string }> {
