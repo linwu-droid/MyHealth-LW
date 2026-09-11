@@ -2,6 +2,7 @@ import type React from 'react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type {
   Food,
+  HealthProfile,
   MacroTotals,
   MainMealType,
   PortionPlan,
@@ -13,6 +14,8 @@ import PlateVisual, {
   computePlateBalanceGaps,
   type PlateMode
 } from '../lib/PlateVisual'
+import HeartPlateTips from '../lib/HeartPlateTips'
+import { buildBakerShoppingTips } from '../../../shared/bakerGuidance'
 
 type Props = { onToast: (msg: string) => void }
 
@@ -225,6 +228,7 @@ export default function ShoppingPage({ onToast }: Props): React.JSX.Element {
   const [applying, setApplying] = useState(false)
   const [expandedDay, setExpandedDay] = useState(1)
   const [plateMode, setPlateMode] = useState<PlateMode>('healthy')
+  const [health, setHealth] = useState<HealthProfile | null>(null)
 
   const linkedFoods = useMemo(() => foodsForLinkSelect(foods), [foods])
 
@@ -252,15 +256,27 @@ export default function ShoppingPage({ onToast }: Props): React.JSX.Element {
     return computePlateBalanceGaps(names, plateMode, kcalByName)
   }, [plan, items, plateMode])
 
+  const bakerShopTips = useMemo(
+    () =>
+      buildBakerShoppingTips({
+        missingGroups: plateBalanceGaps.map((g) => g.group),
+        foodNames: items.filter((i) => !i.checked).map((i) => i.name),
+        profile: health ?? undefined
+      }),
+    [plateBalanceGaps, items, health]
+  )
+
   const plateMeta = PLATE_MODES[plateMode]
 
   const reload = useCallback(async () => {
-    const [list, foodList] = await Promise.all([
+    const [list, foodList, profile] = await Promise.all([
       window.api.listShopping(),
-      window.api.listFoods()
+      window.api.listFoods(),
+      window.api.getHealthProfile()
     ])
     setItems(list)
     setFoods(foodList)
+    setHealth(profile)
   }, [])
 
   useEffect(() => {
@@ -609,6 +625,7 @@ export default function ShoppingPage({ onToast }: Props): React.JSX.Element {
                 ))}
               </div>
             )}
+            <HeartPlateTips tips={bakerShopTips} nested showDisclaimer />
           </div>
         </div>
 

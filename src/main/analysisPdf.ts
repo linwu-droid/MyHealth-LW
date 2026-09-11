@@ -20,6 +20,12 @@ import {
   type MineralKey
 } from '../shared/minerals'
 import { collectAvoidAliases, textMatchesAlias } from '../shared/health'
+import {
+  BAKER_DISCLAIMER,
+  bakerTipMessages,
+  buildBakerTips,
+  mergeRecommendationStrings
+} from '../shared/bakerGuidance'
 import { formatMlExact } from '../shared/water'
 import type {
   DiaryEntry,
@@ -407,7 +413,12 @@ function buildRecommendations(
 
   if (a.entryCount === 0) {
     out.push('Log meals in Diary so we can suggest concrete food and intake recommendations.')
-    return out
+    const bakerEmpty = buildBakerTips({
+      profile,
+      includePrinciples: true,
+      maxGapTips: 0
+    })
+    return mergeRecommendationStrings(out, bakerTipMessages(bakerEmpty).slice(0, 2))
   }
 
   if (plate.vegetables < 30 || plate.source === 'healthy-default') {
@@ -527,19 +538,33 @@ function buildRecommendations(
     )
   }
 
-  if (out.length === 0) {
-    out.push(
+  const baker = buildBakerTips({
+    analysis: a,
+    plate: {
+      vegetables: plate.vegetables,
+      carbohydrates: plate.carbohydrates,
+      protein: plate.protein,
+      source: plate.source
+    },
+    water,
+    profile,
+    includePrinciples: false
+  })
+  const merged = mergeRecommendationStrings(out, bakerTipMessages(baker))
+
+  if (merged.length === 0) {
+    merged.push(
       'Intake looks broadly on track vs your goals for this range. Keep logging consistently and adjust portions as needed.'
     )
   }
 
   if (avoidAliases.length > 0) {
-    out.push(
+    merged.push(
       'Suggestions skip foods that match your Health profile avoid list where possible — always double-check labels.'
     )
   }
 
-  return out
+  return merged
 }
 
 
@@ -839,7 +864,7 @@ function buildAnalysisHtml(
   <h2>Recommendations</h2>
   <ul>${recItems}</ul>
   ${notes}
-  <p class="disclaimer">Not medical advice. Recommendations are general nutrition suggestions based on your logged diary vs goals and Health profile avoid list — talk to a qualified professional for personal medical or dietary advice.</p>
+  <p class="disclaimer">Not medical advice. Recommendations are general nutrition suggestions based on your logged diary vs goals, Health profile avoid list, and Baker Institute-style public fact sheet principles — talk to a qualified professional for personal medical or dietary advice. ${BAKER_DISCLAIMER}</p>
 
   ${
     topFoods

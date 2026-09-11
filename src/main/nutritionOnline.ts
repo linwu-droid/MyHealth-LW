@@ -856,6 +856,8 @@ const SUPERMARKET_SEED: OnlineFoodCandidate[] = [
     minerals: { sodium: 280, potassium: 240, calcium: 40, magnesium: 35, phosphorus: 120, iron: 1.8, zinc: 1.2, manganese: 0.8 } },
   { sourceId: 'seed-sm-kidney-beans-canned', source: 'openfoodfacts', name: 'Kidney beans (canned)', servingLabel: '1/2 cup drained (120 g)', kcal: 110, protein: 7.5, carbs: 19, fat: 0.5,
     minerals: { sodium: 300, potassium: 350, calcium: 40, magnesium: 40, phosphorus: 120, iron: 2, zinc: 1 } },
+  { sourceId: 'seed-sm-four-bean-mix', source: 'openfoodfacts', name: 'Four-bean mix (canned)', servingLabel: '1/2 cup drained (130 g)', kcal: 110, protein: 7.2, carbs: 18, fat: 0.8,
+    minerals: { sodium: 220, potassium: 340, calcium: 50, magnesium: 40, phosphorus: 120, iron: 2.2, zinc: 1 } },
   { sourceId: 'seed-sm-lentils-canned', source: 'openfoodfacts', name: 'Lentils (canned)', servingLabel: '1/2 cup drained (120 g)', kcal: 115, protein: 9, carbs: 20, fat: 0.4,
     minerals: { sodium: 250, potassium: 350, calcium: 25, magnesium: 35, phosphorus: 150, iron: 3, zinc: 1.2 } },
   { sourceId: 'seed-sm-tomatoes-diced-canned', source: 'openfoodfacts', name: 'Tomatoes diced (canned)', servingLabel: '1/2 cup (120 g)', kcal: 25, protein: 1.2, carbs: 5, fat: 0.2,

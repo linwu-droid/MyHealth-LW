@@ -1,10 +1,16 @@
 ﻿import type React from 'react'
-import { useEffect, useState } from 'react'
-import type { MacroVsGoal, MealType, MineralKey, NutritionAnalysis } from '../../../shared/types'
+import { useEffect, useMemo, useState } from 'react'
+import type { HealthProfile, MacroVsGoal, MealType, MineralKey, NutritionAnalysis } from '../../../shared/types'
 import { MINERAL_KEYS, MINERAL_META } from '../../../shared/minerals'
 import { formatMlExact, waterTip } from '../../../shared/water'
 import { todayIso } from '../lib/format'
 import { flagDiaryEntries } from '../../../shared/health'
+import {
+  bakerHeartPlatePrinciples,
+  buildBakerTips,
+  type BakerTip
+} from '../../../shared/bakerGuidance'
+import HeartPlateTips from '../lib/HeartPlateTips'
 
 type Props = { onToast: (msg: string) => void }
 
@@ -119,6 +125,22 @@ export default function AnalysisPage({ onToast }: Props): React.JSX.Element {
   const [waterGoalMl, setWaterGoalMl] = useState(2000)
   const [waterDaysLogged, setWaterDaysLogged] = useState(0)
   const [dayRedFlagSummary, setDayRedFlagSummary] = useState<string | null>(null)
+  const [health, setHealth] = useState<HealthProfile | null>(null)
+
+  useEffect(() => {
+    let cancelledHp = false
+    void window.api
+      .getHealthProfile()
+      .then((p) => {
+        if (!cancelledHp) setHealth(p)
+      })
+      .catch(() => {
+        if (!cancelledHp) setHealth(null)
+      })
+    return () => {
+      cancelledHp = true
+    }
+  }, [])
 
   useEffect(() => {
     if (days !== 1) {
@@ -228,6 +250,19 @@ export default function AnalysisPage({ onToast }: Props): React.JSX.Element {
       setExportingPdf(false)
     }
   }
+  const bakerTips: BakerTip[] = useMemo(() => {
+    if (!analysis) return []
+    const gaps = buildBakerTips({
+      analysis,
+      water: { actualMl: waterActualMl, goalMl: waterGoalMl },
+      profile: health ?? undefined,
+      includePrinciples: false,
+      maxGapTips: 6
+    })
+    if (gaps.length > 0) return gaps
+    return bakerHeartPlatePrinciples().slice(0, 2)
+  }, [analysis, waterActualMl, waterGoalMl, health])
+
   const rangeLabel =
     days === 1
       ? date
@@ -511,6 +546,13 @@ export default function AnalysisPage({ onToast }: Props): React.JSX.Element {
                 ))}
               </div>
             )}
+          </div>
+
+          <div className="panel">
+            <div className="panel-header">
+              <h2>Heart & plate tips</h2>
+            </div>
+            <HeartPlateTips tips={bakerTips} showDisclaimer />
           </div>
 
           {analysis.topFoods.length > 0 && (

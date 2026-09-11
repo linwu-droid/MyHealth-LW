@@ -1045,3 +1045,24 @@ tr.red-flag-row td:first-child {
   color: var(--danger);
   font-size: 0.9rem;
 }
+
+/* Baker-style Heart & plate tips */
+.heart-plate-tips.nested {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--line);
+}
+.heart-plate-tips .heart-plate-list {
+  margin-bottom: 8px;
+}
+.heart-plate-tips .baker-disclaimer {
+  margin-top: 10px;
+}
+.baker-tip-plate .insight-dot { background: #8fbc8f; }
+.baker-tip-veg .insight-dot { background: #2f6f4e; }
+.baker-tip-fibre .insight-dot { background: #c47a2c; }
+.baker-tip-sodium .insight-dot { background: #8b3a3a; }
+.baker-tip-omega3 .insight-dot { background: #4a7a8a; }
+.baker-tip-water .insight-dot { background: #4a7a8a; }
+.baker-tip-heart .insight-dot { background: #8b3a3a; }
+.baker-tip-shopping .insight-dot { background: #6b8f71; }

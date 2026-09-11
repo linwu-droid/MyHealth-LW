@@ -39,7 +39,7 @@ import { estimateExerciseKcal, resolveMetFromName } from '../shared/exerciseMet'
 import { recommendWaterMl } from '../shared/water'
 
 const STORE_FILE = NEW_STORE
-const DATA_VERSION = 12
+const DATA_VERSION = 13
 
 function defaultSettings(): AppSettings {
   return {
@@ -623,6 +623,16 @@ function load(): AppData {
       const names = new Set(cache.foods.map((f) => f.name.toLowerCase()))
       if (!names.has('barramundi grilled') || !names.has('kangaroo steak grilled')) {
         const n = ensureFishMeatFoods(cache)
+        if (n > 0) migrated = true
+      }
+    }
+    if (rawVersion < 13) {
+      const n = ensureSupermarketFoods(cache)
+      if (n > 0) migrated = true
+    } else {
+      const names = new Set(cache.foods.map((f) => f.name.toLowerCase()))
+      if (!names.has('four-bean mix (canned)')) {
+        const n = ensureSupermarketFoods(cache)
         if (n > 0) migrated = true
       }
     }

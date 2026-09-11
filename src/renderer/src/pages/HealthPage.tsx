@@ -7,6 +7,8 @@ import {
   recommendationsForProfile,
   type ExtractCandidate
 } from '../../../shared/health'
+import { bakerHeartPlatePrinciples } from '../../../shared/bakerGuidance'
+import HeartPlateTips from '../lib/HeartPlateTips'
 
 type Props = { onToast: (msg: string) => void }
 
@@ -560,6 +562,13 @@ export default function HealthPage({ onToast }: Props): React.JSX.Element {
             )}
           </div>
         </div>
+      </div>
+
+      <div className="panel">
+        <div className="panel-header">
+          <h2>Heart & plate tips</h2>
+        </div>
+        <HeartPlateTips tips={bakerHeartPlatePrinciples()} showDisclaimer />
       </div>
     </div>
   )
