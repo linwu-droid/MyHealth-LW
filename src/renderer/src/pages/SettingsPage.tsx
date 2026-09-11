@@ -125,7 +125,7 @@ export default function SettingsPage({ onToast, onReset }: Props): React.JSX.Ele
   if (!form) {
     return (
       <div className="panel">
-        <p className="muted">Loadingâ€¦</p>
+        <p className="muted">Loading…</p>
       </div>
     )
   }
@@ -318,7 +318,7 @@ export default function SettingsPage({ onToast, onReset }: Props): React.JSX.Ele
           </label>
           <div className="full row-actions" style={{ alignItems: 'center' }}>
             <span className="muted small">
-              Recommended ~{formatMlExact(recommendedWater)}/day (weight Ã— 35, or 2000 ml)
+              Recommended ~{formatMlExact(recommendedWater)}/day (weight × 35, or 2000 ml)
             </span>
             <button
               type="button"
@@ -341,10 +341,10 @@ export default function SettingsPage({ onToast, onReset }: Props): React.JSX.Ele
       <div className="panel">
         <div className="panel-header">
           <h2>Daily mineral goals</h2>
-          <span className="badge-soft">Adult defaults Â· AU/NZ NRV-ish</span>
+          <span className="badge-soft">Adult defaults · AU/NZ NRV-ish</span>
         </div>
         <p className="muted small" style={{ marginTop: 0 }}>
-          Defaults follow general adult AU/NZ NRV / WHO guidance (sodium â‰ˆ 2000 mg suggested
+          Defaults follow general adult AU/NZ NRV / WHO guidance (sodium ≈ 2000 mg suggested
           target; iron/zinc mid-range). Override any value below. Selenium and iodine are in Âµg;
           others in mg.
         </p>
@@ -373,14 +373,14 @@ export default function SettingsPage({ onToast, onReset }: Props): React.JSX.Ele
         </div>
         <p className="muted">
           Export or import the full local JSON store (settings, foods, diary, water, weight, exercise).
-          Everything stays on this PC â€” no accounts, no paywalls.
+          Everything stays on this PC — no accounts, no paywalls.
         </p>
         <div className="row-actions" style={{ marginTop: 12 }}>
           <button type="button" className="btn" onClick={() => void doExport()}>
-            Export JSONâ€¦
+            Export JSON…
           </button>
           <button type="button" className="btn" onClick={() => void doImport()}>
-            Import JSONâ€¦
+            Import JSON…
           </button>
           <button type="button" className="btn danger" onClick={() => void doReset()}>
             Reset all data
@@ -420,10 +420,10 @@ export default function SettingsPage({ onToast, onReset }: Props): React.JSX.Ele
           <h2>About</h2>
         </div>
         <p>
-          <strong>MyHealth</strong> â€” Food Â· Weight Â· Balance
+          <strong>MyHealth</strong> — Food · Weight · Balance
         </p>
         <p className="muted">
-          RevoConâ„¢ Â· L.W. Â· Free local desktop tracker
+          RevoConâ„¢ · L.W. · Free local desktop tracker
         </p>
       </div>
     </div>

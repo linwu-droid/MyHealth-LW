@@ -187,7 +187,7 @@ export default function FoodsPage({ onToast }: Props): React.JSX.Element {
           <input
             className="input"
             style={{ width: 220, marginTop: 0 }}
-            placeholder="Search foodsâ€¦"
+            placeholder="Search foods…"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
@@ -311,7 +311,7 @@ export default function FoodsPage({ onToast }: Props): React.JSX.Element {
                   <Fragment key={f.id}>
                     <tr>
                       <td>{f.name}</td>
-                      <td>{f.brand || 'â€”'}</td>
+                      <td>{f.brand || '—'}</td>
                       <td>{f.servingLabel}</td>
                       <td>{f.kcal}</td>
                       <td>{f.protein}</td>

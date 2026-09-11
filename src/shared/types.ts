@@ -15,7 +15,7 @@ export interface AppSettings {
   carbsGoalG: number
   fatGoalG: number
   weightUnit: WeightUnit
-  /** Height in cm â€” used for BMI and recommended weight range. */
+  /** Height in cm — used for BMI and recommended weight range. */
   heightCm?: number
   /** Optional sex for ideal-body-weight estimate (Devine). */
   sex?: 'female' | 'male' | 'other' | ''
@@ -181,7 +181,7 @@ export interface PortionRecommendation {
   servingsPerDay: number
   servingsForPeriod: number
   servingLabel: string
-  /** Servings allocated to each main meal (sums â‰ˆ servingsPerDay). */
+  /** Servings allocated to each main meal (sums ≈ servingsPerDay). */
   servingsByMeal: MealServings
   /** Which meal(s) this item is suggested for. */
   suggestedMeals: MainMealType[]

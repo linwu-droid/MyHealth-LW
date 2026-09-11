@@ -1235,7 +1235,7 @@ export async function importHealthReportFile(
           cancelled: false,
           text: text || '',
           fileName: filePath,
-          note: 'Little or no text extracted from PDF (scanned/image PDFs need paste â€” OCR not supported).',
+          note: 'Little or no text extracted from PDF (scanned/image PDFs need paste — OCR not supported).',
           error: !text ? 'No extractable text in PDF. Paste the report text instead.' : undefined
         }
       }
