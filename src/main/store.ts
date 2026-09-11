@@ -14,6 +14,7 @@ import type {
   PortionPlan,
   ShoppingListItem,
   WeightLog,
+  WaterLog,
   NutritionAnalysis
 } from '../shared/types'
 import { buildPortionPlan, type NutritionRef } from './portions'
@@ -25,9 +26,10 @@ import {
   scaleMinerals
 } from '../shared/minerals'
 import { estimateExerciseKcal, resolveMetFromName } from '../shared/exerciseMet'
+import { recommendWaterMl } from '../shared/water'
 
 const STORE_FILE = 'myhealth-lw.json'
-const DATA_VERSION = 6
+const DATA_VERSION = 7
 
 function defaultSettings(): AppSettings {
   return {
@@ -115,6 +117,7 @@ function migrateSettings(raw: Partial<AppSettings> | undefined): AppSettings {
     sexRaw === 'female' || sexRaw === 'male' || sexRaw === 'other' || sexRaw === ''
       ? sexRaw
       : ''
+  const waterRaw = Number(incoming.waterGoalMl)
   return {
     ...base,
     ...incoming,
@@ -122,6 +125,7 @@ function migrateSettings(raw: Partial<AppSettings> | undefined): AppSettings {
     weightGoalKg: goalRaw > 0 ? goalRaw : undefined,
     weightStartKg: startRaw > 0 ? startRaw : undefined,
     sex,
+    waterGoalMl: waterRaw > 0 ? Math.round(waterRaw) : undefined,
     mineralGoals: {
       ...defaultMineralGoals(),
       ...(incoming.mineralGoals ?? {})
@@ -201,7 +205,8 @@ function emptyData(): AppData {
     diaryEntries: [],
     weightLogs: [],
     exercises: [],
-    shoppingList: []
+    shoppingList: [],
+    waterLogs: []
   }
 }
 
@@ -217,6 +222,12 @@ let cache: AppData | null = null
 function ensureShoppingList(data: AppData): ShoppingListItem[] {
   if (!Array.isArray(data.shoppingList)) data.shoppingList = []
   return data.shoppingList
+}
+
+/** Ensure waterLogs is always a real array. */
+function ensureWaterLogs(data: AppData): WaterLog[] {
+  if (!Array.isArray(data.waterLogs)) data.waterLogs = []
+  return data.waterLogs
 }
 
 /** Merge curated drink seeds into foods (name|brand dedupe). Returns count created. Does not save. */
@@ -328,7 +339,8 @@ function load(): AppData {
       diaryEntries: Array.isArray(raw.diaryEntries) ? raw.diaryEntries : [],
       weightLogs: Array.isArray(raw.weightLogs) ? raw.weightLogs : [],
       exercises: Array.isArray(raw.exercises) ? raw.exercises : [],
-      shoppingList: hadShoppingList ? (raw.shoppingList as ShoppingListItem[]) : []
+      shoppingList: hadShoppingList ? (raw.shoppingList as ShoppingListItem[]) : [],
+      waterLogs: Array.isArray(raw.waterLogs) ? (raw.waterLogs as WaterLog[]) : []
     }
     // Persist migration when shoppingList was missing, version was stale, or seeds need merging.
     let migrated = !hadShoppingList || rawVersion < DATA_VERSION
@@ -365,6 +377,10 @@ function load(): AppData {
         if (n > 0) migrated = true
       }
     }
+    ensureWaterLogs(cache)
+    if (rawVersion < 7 && !Array.isArray(raw.waterLogs)) {
+      migrated = true
+    }
     if (migrated) {
       save(cache)
     }
@@ -377,6 +393,7 @@ function load(): AppData {
 
 function save(data: AppData): void {
   if (!Array.isArray(data.shoppingList)) data.shoppingList = []
+  if (!Array.isArray(data.waterLogs)) data.waterLogs = []
   data.version = DATA_VERSION
   cache = data
   writeFileSync(dataPath(), JSON.stringify(data, null, 2), 'utf8')
@@ -405,6 +422,10 @@ export function getSettings(): AppSettings {
 export function updateSettings(patch: Partial<AppSettings>): AppSettings {
   const data = load()
   const next = { ...data.settings, ...patch }
+  if (patch.waterGoalMl !== undefined) {
+    const w = Number(patch.waterGoalMl)
+    next.waterGoalMl = w > 0 ? Math.round(w) : undefined
+  }
   if (patch.mineralGoals !== undefined) {
     next.mineralGoals = {
       ...defaultMineralGoals(),
@@ -676,6 +697,65 @@ export function deleteExercise(id: string): { deleted: boolean } {
   return { deleted: data.exercises.length < before }
 }
 
+export function listWater(date?: string): WaterLog[] {
+  const data = load()
+  ensureWaterLogs(data)
+  const filtered = date
+    ? data.waterLogs.filter((w) => w.date === date.slice(0, 10))
+    : data.waterLogs
+  return [...filtered].sort((a, b) => {
+    const d = b.date.localeCompare(a.date)
+    if (d !== 0) return d
+    return (b.createdAt || '').localeCompare(a.createdAt || '')
+  })
+}
+
+export function addWater(input: { date: string; ml: number }): WaterLog {
+  const data = load()
+  ensureWaterLogs(data)
+  const ml = Math.round(Number(input.ml) || 0)
+  if (!(ml > 0)) throw new Error('ml must be positive')
+  const log: WaterLog = {
+    id: randomUUID(),
+    date: input.date.slice(0, 10),
+    ml,
+    createdAt: new Date().toISOString()
+  }
+  data.waterLogs.push(log)
+  save(data)
+  return log
+}
+
+export function deleteWater(id: string): { deleted: boolean } {
+  const data = load()
+  ensureWaterLogs(data)
+  const before = data.waterLogs.length
+  data.waterLogs = data.waterLogs.filter((w) => w.id !== id)
+  save(data)
+  return { deleted: data.waterLogs.length < before }
+}
+
+export function getWaterTotal(date: string): number {
+  const day = date.slice(0, 10)
+  return listWater(day).reduce((s, w) => s + w.ml, 0)
+}
+
+export function getWaterGoalMl(): number {
+  const data = load()
+  const override = data.settings.waterGoalMl
+  if (override != null && override > 0) return Math.round(override)
+  const weights = [...data.weightLogs].sort((a, b) => b.date.localeCompare(a.date))
+  const latest = weights[0]?.kg ?? null
+  return recommendWaterMl(latest)
+}
+
+export function getRecommendedWaterMl(): number {
+  const data = load()
+  const weights = [...data.weightLogs].sort((a, b) => b.date.localeCompare(a.date))
+  const latest = weights[0]?.kg ?? null
+  return recommendWaterMl(latest)
+}
+
 export function getDashboard(date: string): DashboardSummary {
   const data = load()
   const day = date.slice(0, 10)
@@ -900,7 +980,8 @@ export function importData(incoming: AppData): AppData {
     diaryEntries: Array.isArray(incoming.diaryEntries) ? incoming.diaryEntries : [],
     weightLogs: Array.isArray(incoming.weightLogs) ? incoming.weightLogs : [],
     exercises: Array.isArray(incoming.exercises) ? incoming.exercises : [],
-    shoppingList: Array.isArray(incoming.shoppingList) ? incoming.shoppingList : []
+    shoppingList: Array.isArray(incoming.shoppingList) ? incoming.shoppingList : [],
+    waterLogs: Array.isArray(incoming.waterLogs) ? incoming.waterLogs : []
   }
   save(next)
   return structuredClone(next)

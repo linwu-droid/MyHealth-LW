@@ -25,6 +25,8 @@ export interface AppSettings {
   weightStartKg?: number
   /** Daily mineral goals (mg unless selenium/iodine ug). Partial overrides OK. */
   mineralGoals?: Partial<Record<MineralKey, number>>
+  /** Optional daily water goal (ml). If unset, use weight-based recommendation. */
+  waterGoalMl?: number
 }
 
 export interface Food {
@@ -84,6 +86,13 @@ export interface ShoppingListItem {
   createdAt: string
 }
 
+export interface WaterLog {
+  id: string
+  date: string // YYYY-MM-DD
+  ml: number
+  createdAt: string // ISO
+}
+
 export interface AppData {
   version: number
   settings: AppSettings
@@ -92,6 +101,7 @@ export interface AppData {
   weightLogs: WeightLog[]
   exercises: Exercise[]
   shoppingList: ShoppingListItem[]
+  waterLogs: WaterLog[]
 }
 
 export interface MacroTotals {

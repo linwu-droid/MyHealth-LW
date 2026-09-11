@@ -10,6 +10,7 @@ import type {
   PortionPlan,
   ShoppingListItem,
   WeightLog,
+  WaterLog,
   NutritionAnalysis
 } from '../shared/types'
 
@@ -96,6 +97,15 @@ const api = {
     ipcRenderer.invoke('weight:add', input),
   deleteWeight: (id: string): Promise<{ deleted: boolean }> =>
     ipcRenderer.invoke('weight:delete', id),
+
+  listWater: (date?: string): Promise<WaterLog[]> => ipcRenderer.invoke('water:list', date),
+  addWater: (input: { date: string; ml: number }): Promise<WaterLog> =>
+    ipcRenderer.invoke('water:add', input),
+  deleteWater: (id: string): Promise<{ deleted: boolean }> =>
+    ipcRenderer.invoke('water:delete', id),
+  getWaterTotal: (date: string): Promise<number> => ipcRenderer.invoke('water:total', date),
+  getWaterGoalMl: (): Promise<number> => ipcRenderer.invoke('water:goal'),
+  getRecommendedWaterMl: (): Promise<number> => ipcRenderer.invoke('water:recommended'),
 
   listExercise: (date?: string): Promise<Exercise[]> =>
     ipcRenderer.invoke('exercise:list', date),

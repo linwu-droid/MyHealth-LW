@@ -27,6 +27,12 @@ import {
   listFoods,
   listShopping,
   listWeight,
+  listWater,
+  addWater,
+  deleteWater,
+  getWaterTotal,
+  getWaterGoalMl,
+  getRecommendedWaterMl,
   resetData,
   updateDiary,
   updateFood,
@@ -206,6 +212,13 @@ function registerIpc(getWindow: () => BrowserWindow | null): void {
   ipcMain.handle('weight:list', () => listWeight())
   ipcMain.handle('weight:add', (_e, input: { date: string; kg: number }) => addWeight(input))
   ipcMain.handle('weight:delete', (_e, id: string) => deleteWeight(id))
+
+  ipcMain.handle('water:list', (_e, date?: string) => listWater(date))
+  ipcMain.handle('water:add', (_e, input: { date: string; ml: number }) => addWater(input))
+  ipcMain.handle('water:delete', (_e, id: string) => deleteWater(id))
+  ipcMain.handle('water:total', (_e, date: string) => getWaterTotal(date))
+  ipcMain.handle('water:goal', () => getWaterGoalMl())
+  ipcMain.handle('water:recommended', () => getRecommendedWaterMl())
 
   ipcMain.handle('exercise:list', (_e, date?: string) => listExercise(date))
   ipcMain.handle('exercise:add', (_e, input: Omit<Exercise, 'id'>) => addExercise(input))

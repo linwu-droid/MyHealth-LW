@@ -1,5 +1,9 @@
 ﻿import React, { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
-import type { DiaryEntry, Food, MealType } from '../../../shared/types'
+import type { DiaryEntry, Food, MealType, WaterLog } from '../../../shared/types'
+import {
+  formatMlExact,
+  waterProgressPct
+} from '../../../shared/water'
 import { scaleMinerals } from '../../../shared/minerals'
 import {
   formatPortion,
@@ -55,6 +59,10 @@ export default function DiaryPage({ onToast }: Props): React.JSX.Element {
   const [entries, setEntries] = useState<DiaryEntry[]>([])
   const [exerciseKcal, setExerciseKcal] = useState(0)
   const [calorieGoal, setCalorieGoal] = useState(2000)
+  const [waterLogs, setWaterLogs] = useState<WaterLog[]>([])
+  const [waterGoalMl, setWaterGoalMl] = useState(2000)
+  const [recommendedWaterMl, setRecommendedWaterMl] = useState(2000)
+  const [customWaterMl, setCustomWaterMl] = useState('250')
   const [showAdd, setShowAdd] = useState(false)
   const [meal, setMeal] = useState<MealType>('breakfast')
   const [query, setQuery] = useState('')
@@ -75,14 +83,20 @@ export default function DiaryPage({ onToast }: Props): React.JSX.Element {
   const [detailId, setDetailId] = useState<string | null>(null)
 
   const reload = useCallback(async () => {
-    const [list, dash, settings] = await Promise.all([
+    const [list, dash, settings, waters, goal, recommended] = await Promise.all([
       window.api.listDiary(date),
       window.api.getDashboard(date),
-      window.api.getSettings()
+      window.api.getSettings(),
+      window.api.listWater(date),
+      window.api.getWaterGoalMl(),
+      window.api.getRecommendedWaterMl()
     ])
     setEntries(list)
     setExerciseKcal(dash.exerciseKcal)
     setCalorieGoal(settings.calorieGoal)
+    setWaterLogs(waters)
+    setWaterGoalMl(goal)
+    setRecommendedWaterMl(recommended)
   }, [date])
 
   useEffect(() => {
@@ -277,6 +291,34 @@ export default function DiaryPage({ onToast }: Props): React.JSX.Element {
 
   const unitOptions = mode === 'custom' ? CUSTOM_UNITS : FOOD_UNITS
 
+  const waterTotal = useMemo(
+    () => waterLogs.reduce((sum, w) => sum + w.ml, 0),
+    [waterLogs]
+  )
+  const waterPct = waterProgressPct(waterTotal, waterGoalMl)
+
+  async function addWaterQuick(ml: number): Promise<void> {
+    if (!(ml > 0)) return
+    await window.api.addWater({ date, ml: Math.round(ml) })
+    onToast('Added ' + formatMlExact(ml) + ' water')
+    await reload()
+  }
+
+  async function addCustomWater(): Promise<void> {
+    const ml = Math.round(Number(customWaterMl) || 0)
+    if (!(ml > 0)) {
+      onToast('Enter a positive ml amount')
+      return
+    }
+    await addWaterQuick(ml)
+  }
+
+  async function removeWater(id: string): Promise<void> {
+    await window.api.deleteWater(id)
+    onToast('Water entry removed')
+    await reload()
+  }
+
   return (
     <div>
       <div className="page-header">
@@ -316,6 +358,97 @@ export default function DiaryPage({ onToast }: Props): React.JSX.Element {
             {Math.round(dayTotals.fat)} g
           </div>
         </div>
+      </div>
+
+      <div className="panel" style={{ marginTop: 16 }}>
+        <div className="panel-header">
+          <h2>Water</h2>
+          <span className="badge-soft">
+            {formatMlExact(waterTotal)} / {formatMlExact(waterGoalMl)} · {waterPct}%
+          </span>
+        </div>
+        <p className="muted small" style={{ marginTop: 0 }}>
+          Recommended ~{formatMlExact(recommendedWaterMl)}/day
+          {waterGoalMl !== recommendedWaterMl ? ' · using your custom goal' : ' (from weight or default)'}
+        </p>
+        <div className="progress-track" style={{ marginBottom: 12 }}>
+          <div
+            className="progress-fill"
+            style={{
+              width: waterPct + '%',
+              background: waterPct > 100 ? 'var(--danger)' : undefined
+            }}
+          />
+        </div>
+        <div className="chip-row" style={{ marginBottom: 12 }}>
+          <button type="button" className="chip" onClick={() => void addWaterQuick(250)}>
+            +250 ml
+          </button>
+          <button type="button" className="chip" onClick={() => void addWaterQuick(500)}>
+            +500 ml
+          </button>
+          <button type="button" className="chip" onClick={() => void addWaterQuick(250)}>
+            +1 cup
+          </button>
+        </div>
+        <div className="row-actions" style={{ marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+          <label className="block-label" style={{ margin: 0, minWidth: 140 }}>
+            Custom (ml)
+            <input
+              className="input"
+              type="number"
+              min={50}
+              step={50}
+              value={customWaterMl}
+              onChange={(e) => setCustomWaterMl(e.target.value)}
+              style={{ marginTop: 4 }}
+            />
+          </label>
+          <button type="button" className="btn primary" onClick={() => void addCustomWater()}>
+            Add
+          </button>
+        </div>
+        {waterLogs.length === 0 ? (
+          <p className="muted small" style={{ marginBottom: 0 }}>
+            No water logged for this date yet.
+          </p>
+        ) : (
+          <div className="table-wrap">
+            <table className="data">
+              <thead>
+                <tr>
+                  <th>Amount</th>
+                  <th>Time</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {waterLogs.map((w) => (
+                  <tr key={w.id}>
+                    <td>{formatMlExact(w.ml)}</td>
+                    <td className="muted">
+                      {w.createdAt
+                        ? new Date(w.createdAt).toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })
+                        : '—'}
+                    </td>
+                    <td>
+                      <button
+                        type="button"
+                        className="btn ghost compact"
+                        onClick={() => void removeWater(w.id)}
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {showAdd && (

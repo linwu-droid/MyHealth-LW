@@ -4,6 +4,7 @@ import type { AppSettings, MineralKey, WeightUnit } from '../../../shared/types'
 import type { SexOption } from '../../../shared/weight'
 import { MINERAL_KEYS, MINERAL_META, defaultMineralGoals } from '../../../shared/minerals'
 import { kgToLb, lbToKg, round1 } from '../lib/format'
+import { formatMlExact } from '../../../shared/water'
 
 type Props = {
   onToast: (msg: string) => void
@@ -19,12 +20,19 @@ function ensureMineralGoals(s: AppSettings): AppSettings {
 
 export default function SettingsPage({ onToast, onReset }: Props): React.JSX.Element {
   const [form, setForm] = useState<AppSettings | null>(null)
+  const [recommendedWater, setRecommendedWater] = useState(2000)
 
   useEffect(() => {
     void window.api
       .getSettings()
       .then((s) => setForm(ensureMineralGoals(s)))
       .catch(() => onToast('Failed to load settings'))
+    void window.api
+      .getRecommendedWaterMl()
+      .then(setRecommendedWater)
+      .catch(() => {
+        /* non-fatal */
+      })
   }, [onToast])
 
   async function save(): Promise<void> {
@@ -36,10 +44,17 @@ export default function SettingsPage({ onToast, onReset }: Props): React.JSX.Ele
       form.weightStartKg != null && form.weightStartKg > 0 ? form.weightStartKg : undefined
     const sex: SexOption =
       form.sex === 'female' || form.sex === 'male' || form.sex === 'other' ? form.sex : ''
+    const waterGoalMl =
+      form.waterGoalMl != null && form.waterGoalMl > 0 ? Math.round(form.waterGoalMl) : undefined
     const next = await window.api.updateSettings(
-      ensureMineralGoals({ ...form, heightCm, weightGoalKg, weightStartKg, sex })
+      ensureMineralGoals({ ...form, heightCm, weightGoalKg, weightStartKg, sex, waterGoalMl })
     )
     setForm(ensureMineralGoals(next))
+    try {
+      setRecommendedWater(await window.api.getRecommendedWaterMl())
+    } catch {
+      /* ignore */
+    }
     onToast('Settings saved')
   }
 
@@ -63,7 +78,7 @@ export default function SettingsPage({ onToast, onReset }: Props): React.JSX.Ele
 
   async function doReset(): Promise<void> {
     const ok = window.confirm(
-      'Reset all MyHealth data? This restores default settings and the seed food list. Diary, weight and exercise logs will be cleared.'
+      'Reset all MyHealth data? This restores default settings and the seed food list. Diary, water, weight and exercise logs will be cleared.'
     )
     if (!ok) return
     await window.api.resetData()
@@ -260,6 +275,43 @@ export default function SettingsPage({ onToast, onReset }: Props): React.JSX.Ele
               placeholder="Optional"
             />
           </label>
+          <label>
+            Water goal (ml)
+            <input
+              className="input"
+              type="number"
+              min={500}
+              step={50}
+              value={form.waterGoalMl ?? ''}
+              onChange={(e) => {
+                const n = Number(e.target.value)
+                setForm({
+                  ...form,
+                  waterGoalMl: e.target.value === '' || !(n > 0) ? undefined : Math.round(n)
+                })
+              }}
+              placeholder={'e.g. ' + recommendedWater}
+            />
+          </label>
+          <div className="full row-actions" style={{ alignItems: 'center' }}>
+            <span className="muted small">
+              Recommended ~{formatMlExact(recommendedWater)}/day (weight × 35, or 2000 ml)
+            </span>
+            <button
+              type="button"
+              className="btn"
+              onClick={() => setForm({ ...form, waterGoalMl: recommendedWater })}
+            >
+              Use recommended
+            </button>
+            <button
+              type="button"
+              className="btn ghost"
+              onClick={() => setForm({ ...form, waterGoalMl: undefined })}
+            >
+              Clear (auto)
+            </button>
+          </div>
         </div>
       </div>
 
@@ -297,7 +349,7 @@ export default function SettingsPage({ onToast, onReset }: Props): React.JSX.Ele
           <h2>Data</h2>
         </div>
         <p className="muted">
-          Export or import the full local JSON store (settings, foods, diary, weight, exercise).
+          Export or import the full local JSON store (settings, foods, diary, water, weight, exercise).
           Everything stays on this PC — no accounts, no paywalls.
         </p>
         <div className="row-actions" style={{ marginTop: 12 }}>

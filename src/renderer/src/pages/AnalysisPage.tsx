@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import type { MacroVsGoal, MealType, MineralKey, NutritionAnalysis } from '../../../shared/types'
 import { MINERAL_KEYS, MINERAL_META } from '../../../shared/minerals'
+import { formatMlExact, waterProgressPct, waterTip } from '../../../shared/water'
 import { todayIso } from '../lib/format'
 
 type Props = { onToast: (msg: string) => void }
@@ -106,6 +107,9 @@ export default function AnalysisPage({ onToast }: Props): React.JSX.Element {
   const [analysis, setAnalysis] = useState<NutritionAnalysis | null>(null)
   const [loading, setLoading] = useState(true)
   const [exportingPdf, setExportingPdf] = useState(false)
+  const [waterActualMl, setWaterActualMl] = useState(0)
+  const [waterGoalMl, setWaterGoalMl] = useState(2000)
+  const [waterDaysLogged, setWaterDaysLogged] = useState(0)
 
   useEffect(() => {
     let cancelled = false
@@ -121,6 +125,40 @@ export default function AnalysisPage({ onToast }: Props): React.JSX.Element {
       .finally(() => {
         if (!cancelled) setLoading(false)
       })
+    return () => {
+      cancelled = true
+    }
+  }, [date, days, onToast])
+
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      try {
+        const [logs, goal] = await Promise.all([
+          window.api.listWater(),
+          window.api.getWaterGoalMl()
+        ])
+        if (cancelled) return
+        const end = date.slice(0, 10)
+        const endDate = new Date(end + 'T12:00:00')
+        const startDate = new Date(endDate)
+        startDate.setDate(startDate.getDate() - (days - 1))
+        const start = startDate.toISOString().slice(0, 10)
+        const inRange = logs.filter((w) => w.date >= start && w.date <= end)
+        const byDay = new Map<string, number>()
+        for (const w of inRange) {
+          byDay.set(w.date, (byDay.get(w.date) ?? 0) + w.ml)
+        }
+        const totals = [...byDay.values()]
+        const sum = totals.reduce((a, b) => a + b, 0)
+        const actual = days === 1 ? sum : sum / days
+        setWaterActualMl(Math.round(actual))
+        setWaterGoalMl(goal)
+        setWaterDaysLogged(byDay.size)
+      } catch {
+        if (!cancelled) onToast('Failed to load water analysis')
+      }
+    })()
     return () => {
       cancelled = true
     }
@@ -288,6 +326,45 @@ export default function AnalysisPage({ onToast }: Props): React.JSX.Element {
                 {Math.round(analysis.totals.protein)} g Protein · {Math.round(analysis.totals.carbs)} g Carbohydrate · {Math.round(analysis.totals.fat)} g Fat · {analysis.entryCount} entries
               </p>
             )}
+          </div>
+
+          <div className="panel">
+            <div className="panel-header">
+              <h2>Water</h2>
+              <span className="badge-soft">
+                {days === 1 ? 'Today' : 'Avg / day'} · {waterDaysLogged}/{days} days logged
+              </span>
+            </div>
+            <GoalBar
+              label="Water intake"
+              unit="ml"
+              vs={{
+                actual: waterActualMl,
+                goal: waterGoalMl,
+                pctOfGoal: waterGoalMl > 0 ? (waterActualMl / waterGoalMl) * 100 : 0,
+                remaining: waterGoalMl - waterActualMl
+              }}
+              color="#4a7a8a"
+            />
+            <div className="progress-track" style={{ marginTop: 8, marginBottom: 8 }}>
+              <div
+                className="progress-fill"
+                style={{
+                  width: waterProgressPct(waterActualMl, waterGoalMl) + '%',
+                  background:
+                    waterActualMl > waterGoalMl * 1.3 ? 'var(--danger)' : '#4a7a8a'
+                }}
+              />
+            </div>
+            <p className="muted small" style={{ marginBottom: 0 }}>
+              {waterTip(waterActualMl, waterGoalMl).message}
+            </p>
+            <p className="muted small" style={{ marginTop: 6, marginBottom: 0 }}>
+              Goal {formatMlExact(waterGoalMl)}
+              {days > 1
+                ? ' · averages include days with no water log as 0'
+                : ''}
+            </p>
           </div>
 
           <div className="panel">

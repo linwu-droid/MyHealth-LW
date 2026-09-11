@@ -1,7 +1,8 @@
-﻿import { BrowserWindow, dialog } from 'electron'
+import { BrowserWindow, dialog } from 'electron'
 import { writeFileSync } from 'fs'
-import { getNutritionAnalysis, getSettings } from './store'
+import { getNutritionAnalysis, getSettings, getWaterGoalMl, listWater } from './store'
 import { MINERAL_KEYS, MINERAL_META } from '../shared/minerals'
+import { formatMlExact } from '../shared/water'
 import type { NutritionAnalysis } from '../shared/types'
 
 function esc(s: string): string {
@@ -24,7 +25,11 @@ function vsLine(label: string, actual: number, goal: number, unit: string, pct: 
   return `<tr><td>${esc(label)}</td><td>${fmt(actual, unit)}</td><td>${fmt(goal, unit)}</td><td>${Math.round(pct)}%</td></tr>`
 }
 
-function buildAnalysisHtml(a: NutritionAnalysis, displayName: string): string {
+function buildAnalysisHtml(
+  a: NutritionAnalysis,
+  displayName: string,
+  water?: { actualMl: number; goalMl: number; daysLogged: number }
+): string {
   const range =
     a.days === 1
       ? a.date
@@ -123,6 +128,13 @@ function buildAnalysisHtml(a: NutritionAnalysis, displayName: string): string {
   <h2>Macro balance</h2>
   <p>Protein ${a.macroBalance.proteinPct}% · Carbohydrate ${a.macroBalance.carbsPct}% · Fat ${a.macroBalance.fatPct}% of kcal</p>
 
+  ${
+    water
+      ? `<h2>Water</h2>
+  <p>${formatMlExact(water.actualMl)} ${a.days > 1 ? 'avg/day' : 'today'} · Goal ${formatMlExact(water.goalMl)} · ${water.daysLogged}/${a.days} days logged · ${water.goalMl > 0 ? Math.round((water.actualMl / water.goalMl) * 100) : 0}% of goal</p>`
+      : ''
+  }
+
   <h2>Minerals</h2>
   <p class="sub">Coverage ${a.mineralCoverage.entriesWithData}/${a.mineralCoverage.entryCount} (${Math.round(a.mineralCoverage.pct)}%)</p>
   <table>
@@ -172,7 +184,22 @@ export async function exportAnalysisPdf(
     const date = new Date().toISOString().slice(0, 10)
     const analysis = getNutritionAnalysis(date, safeDays)
     const settings = getSettings()
-    const html = buildAnalysisHtml(analysis, settings.displayName ?? '')
+    const end = date
+    const endDate = new Date(end + 'T12:00:00')
+    const startDate = new Date(endDate)
+    startDate.setDate(startDate.getDate() - (safeDays - 1))
+    const start = startDate.toISOString().slice(0, 10)
+    const logs = listWater().filter((w) => w.date >= start && w.date <= end)
+    const byDay = new Map<string, number>()
+    for (const w of logs) byDay.set(w.date, (byDay.get(w.date) ?? 0) + w.ml)
+    const sum = [...byDay.values()].reduce((a, b) => a + b, 0)
+    const waterActual = safeDays === 1 ? sum : Math.round(sum / safeDays)
+    const water = {
+      actualMl: waterActual,
+      goalMl: getWaterGoalMl(),
+      daysLogged: byDay.size
+    }
+    const html = buildAnalysisHtml(analysis, settings.displayName ?? '', water)
 
     const res = await dialog.showSaveDialog(win ?? undefined!, {
       title: 'Export nutrition analysis PDF',
