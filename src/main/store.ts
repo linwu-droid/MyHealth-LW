@@ -18,6 +18,7 @@ import type {
 } from '../shared/types'
 import { buildPortionPlan, type NutritionRef } from './portions'
 import { analyzeNutrition } from './nutritionAnalysis'
+import { getDrinkSeedInputs } from './nutritionOnline'
 import {
   defaultMineralGoals,
   normalizeMinerals,
@@ -25,7 +26,7 @@ import {
 } from '../shared/minerals'
 
 const STORE_FILE = 'myhealth-lw.json'
-const DATA_VERSION = 3
+const DATA_VERSION = 4
 
 function defaultSettings(): AppSettings {
   return {
@@ -113,10 +114,34 @@ function migrateSettings(raw: Partial<AppSettings> | undefined): AppSettings {
 }
 
 function emptyData(): AppData {
+  const foods = seedFoods()
+  const existing = new Set(
+    foods.map((f) => `${f.name.toLowerCase()}|${(f.brand ?? '').toLowerCase()}`)
+  )
+  for (const input of getDrinkSeedInputs()) {
+    const name = input.name.trim()
+    if (!name) continue
+    const brand = input.brand?.trim() || undefined
+    const key = `${name.toLowerCase()}|${(brand ?? '').toLowerCase()}`
+    if (existing.has(key)) continue
+    const minerals = normalizeMinerals(input.minerals)
+    foods.push({
+      id: randomUUID(),
+      name,
+      brand,
+      servingLabel: input.servingLabel.trim() || '1 serving',
+      kcal: Number(input.kcal) || 0,
+      protein: Number(input.protein) || 0,
+      carbs: Number(input.carbs) || 0,
+      fat: Number(input.fat) || 0,
+      ...(minerals ? { minerals } : {})
+    })
+    existing.add(key)
+  }
   return {
     version: DATA_VERSION,
     settings: defaultSettings(),
-    foods: seedFoods(),
+    foods,
     diaryEntries: [],
     weightLogs: [],
     exercises: [],
@@ -136,6 +161,36 @@ let cache: AppData | null = null
 function ensureShoppingList(data: AppData): ShoppingListItem[] {
   if (!Array.isArray(data.shoppingList)) data.shoppingList = []
   return data.shoppingList
+}
+
+/** Merge curated drink seeds into foods (name|brand dedupe). Returns count created. Does not save. */
+function ensureDrinkFoods(data: AppData): number {
+  const existing = new Set(
+    data.foods.map((f) => `${f.name.toLowerCase()}|${(f.brand ?? '').toLowerCase()}`)
+  )
+  let created = 0
+  for (const input of getDrinkSeedInputs()) {
+    const name = input.name.trim()
+    if (!name) continue
+    const brand = input.brand?.trim() || undefined
+    const key = `${name.toLowerCase()}|${(brand ?? '').toLowerCase()}`
+    if (existing.has(key)) continue
+    const minerals = normalizeMinerals(input.minerals)
+    data.foods.push({
+      id: randomUUID(),
+      name,
+      brand,
+      servingLabel: input.servingLabel.trim() || '1 serving',
+      kcal: Number(input.kcal) || 0,
+      protein: Number(input.protein) || 0,
+      carbs: Number(input.carbs) || 0,
+      fat: Number(input.fat) || 0,
+      ...(minerals ? { minerals } : {})
+    })
+    existing.add(key)
+    created++
+  }
+  return created
 }
 
 function load(): AppData {
@@ -159,8 +214,20 @@ function load(): AppData {
       exercises: Array.isArray(raw.exercises) ? raw.exercises : [],
       shoppingList: hadShoppingList ? (raw.shoppingList as ShoppingListItem[]) : []
     }
-    // Persist migration when shoppingList was missing or version was stale.
-    if (!hadShoppingList || rawVersion < DATA_VERSION) {
+    // Persist migration when shoppingList was missing, version was stale, or drinks need seeding.
+    let migrated = !hadShoppingList || rawVersion < DATA_VERSION
+    if (rawVersion < 4) {
+      const n = ensureDrinkFoods(cache)
+      if (n > 0) migrated = true
+    } else {
+      // Safety net: if drinks pack markers are missing, seed anyway.
+      const names = new Set(cache.foods.map((f) => f.name.toLowerCase()))
+      if (!names.has('latte (whole milk)') || !names.has('espresso')) {
+        const n = ensureDrinkFoods(cache)
+        if (n > 0) migrated = true
+      }
+    }
+    if (migrated) {
       save(cache)
     }
   } catch {

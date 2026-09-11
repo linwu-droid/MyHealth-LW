@@ -4,6 +4,15 @@ import type { Food, OnlineFoodCandidate } from '../../../shared/types'
 
 type Props = { onToast: (msg: string) => void }
 type Tab = 'mine' | 'online'
+type FoodKindFilter = 'all' | 'foods' | 'drinks'
+
+const DRINK_SERVING_RE = /ml|cup|oz|litre|liter|bottle/i
+const DRINK_NAME_RE =
+  /coffee|latte|cappuccino|espresso|tea|juice|water|milk|cola|soda|smoothie|beer|wine|drink|mocha|americano|macchiato|kombucha|lemonade|chocolate milk|hot chocolate|flat white|chai/i
+
+function isDrinkFood(f: Food): boolean {
+  return DRINK_SERVING_RE.test(f.servingLabel) || DRINK_NAME_RE.test(f.name)
+}
 
 const blank = {
   name: '',
@@ -36,6 +45,7 @@ export default function FoodsPage({ onToast }: Props): React.JSX.Element {
   const [tab, setTab] = useState<Tab>('mine')
   const [foods, setFoods] = useState<Food[]>([])
   const [query, setQuery] = useState('')
+  const [kindFilter, setKindFilter] = useState<FoodKindFilter>('all')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState(blank)
   const [showForm, setShowForm] = useState(false)
@@ -62,6 +72,12 @@ export default function FoodsPage({ onToast }: Props): React.JSX.Element {
     () => Object.values(selected).filter(Boolean).length,
     [selected]
   )
+
+  const filteredFoods = useMemo(() => {
+    if (kindFilter === 'all') return foods
+    if (kindFilter === 'drinks') return foods.filter(isDrinkFood)
+    return foods.filter((f) => !isDrinkFood(f))
+  }, [foods, kindFilter])
 
   function openCreate(): void {
     setEditingId(null)
@@ -266,6 +282,25 @@ export default function FoodsPage({ onToast }: Props): React.JSX.Element {
       {tab === 'mine' && (
         <>
           <div className="page-header" style={{ marginTop: -8 }}>
+            <div className="segmented" role="group" aria-label="Foods or drinks filter">
+              {(
+                [
+                  ['all', 'All'],
+                  ['foods', 'Foods'],
+                  ['drinks', 'Drinks']
+                ] as const
+              ).map(([id, label]) => (
+                <button
+                  key={id}
+                  type="button"
+                  className={kindFilter === id ? 'active' : ''}
+                  aria-pressed={kindFilter === id}
+                  onClick={() => setKindFilter(id)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
             <div className="spacer" />
             <div className="row-actions">
               <input
@@ -363,12 +398,12 @@ export default function FoodsPage({ onToast }: Props): React.JSX.Element {
           <div className="panel">
             <div className="panel-header">
               <h2>Database</h2>
-              <span className="muted">{foods.length} foods</span>
+              <span className="muted">{filteredFoods.length} of {foods.length}</span>
             </div>
-            {foods.length === 0 ? (
+            {filteredFoods.length === 0 ? (
               <div className="empty">
                 <h3>No foods found</h3>
-                <p>Add a food, import online, or clear the search.</p>
+                <p>Add a food, import online, clear the search, or switch All / Foods / Drinks.</p>
               </div>
             ) : (
               <div className="table-wrap">
@@ -386,7 +421,7 @@ export default function FoodsPage({ onToast }: Props): React.JSX.Element {
                     </tr>
                   </thead>
                   <tbody>
-                    {foods.map((f) => (
+                    {filteredFoods.map((f) => (
                       <tr key={f.id}>
                         <td>{f.name}</td>
                         <td>{f.brand || '—'}</td>

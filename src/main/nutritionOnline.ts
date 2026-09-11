@@ -532,3 +532,6 @@ export function toFoodInput(c: OnlineFoodCandidate): Omit<Food, 'id'> {
     ...(minerals ? { minerals } : {})
   }
 }
+export function getDrinkSeedInputs(): Omit<Food, 'id'>[] {
+  return DRINK_SEED.map(toFoodInput)
+}
