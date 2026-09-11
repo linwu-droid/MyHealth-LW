@@ -39,6 +39,12 @@ export const MINERAL_META: Record<
  * Sodium uses the ~2000 mg suggested dietary target (not the lower AI).
  * Iron/zinc are mid-range adult values (women often need more iron).
  */
+/** Bar / PDF label: symbol then full name, e.g. Zn – Zinc. */
+export function mineralDisplayLabel(key: MineralKey): string {
+  const m = MINERAL_META[key]
+  return `${m.short} – ${m.label}`
+}
+
 export function defaultMineralGoals(): Record<MineralKey, number> {
   return {
     sodium: 2000,

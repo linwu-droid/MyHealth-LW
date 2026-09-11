@@ -429,7 +429,7 @@ export default function AnalysisPage({ onToast }: Props): React.JSX.Element {
               return (
                 <GoalBar
                   key={key}
-                  label={`${meta.label} (${meta.short})`}
+                  label={`${meta.short} – ${meta.label}`}
                   unit={meta.unit}
                   vs={vs}
                   color={MINERAL_COLORS[key]}
@@ -492,7 +492,7 @@ export default function AnalysisPage({ onToast }: Props): React.JSX.Element {
 
           <div className="panel">
             <div className="panel-header">
-              <h2>Insights</h2>
+              <h2>Recommendations</h2>
             </div>
             <ul className="insight-list">
               {analysis.insights.map((tip) => (
