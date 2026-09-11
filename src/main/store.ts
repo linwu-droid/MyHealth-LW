@@ -24,6 +24,7 @@ import {
   normalizeMinerals,
   scaleMinerals
 } from '../shared/minerals'
+import { estimateExerciseKcal, resolveMetFromName } from '../shared/exerciseMet'
 
 const STORE_FILE = 'myhealth-lw.json'
 const DATA_VERSION = 4
@@ -508,12 +509,28 @@ export function addExercise(
   input: Omit<Exercise, 'id'>
 ): Exercise {
   const data = load()
+  const name = input.name.trim()
+  const minutes =
+    input.minutes !== undefined && input.minutes !== null
+      ? Number(input.minutes)
+      : undefined
+  let kcal = Number(input.kcal) || 0
+  const mins =
+    minutes !== undefined && Number.isFinite(minutes) && minutes > 0 ? minutes : 0
+  if (kcal <= 0 && mins > 0) {
+    const met = resolveMetFromName(name)
+    if (met !== null) {
+      const weights = [...data.weightLogs].sort((a, b) => b.date.localeCompare(a.date))
+      const weightKg = weights[0]?.kg && weights[0].kg > 0 ? weights[0].kg : 70
+      kcal = estimateExerciseKcal({ met, weightKg, minutes: mins })
+    }
+  }
   const ex: Exercise = {
     id: randomUUID(),
     date: input.date.slice(0, 10),
-    name: input.name.trim(),
-    minutes: input.minutes !== undefined && input.minutes !== null ? Number(input.minutes) : undefined,
-    kcal: Number(input.kcal) || 0
+    name,
+    minutes: mins > 0 ? mins : minutes !== undefined && Number.isFinite(minutes) ? minutes : undefined,
+    kcal
   }
   data.exercises.push(ex)
   save(data)
