@@ -61,8 +61,8 @@ button, input, select, textarea {
   border-radius: 10px;
   object-fit: contain;
   object-position: center;
-  padding: 2px;
-  background: #f5f0e6;
+  padding: 3px;
+  background: transparent;
   box-shadow: 0 2px 8px rgba(0,0,0,0.18);
   display: block;
   flex-shrink: 0;
@@ -357,12 +357,16 @@ table.data tr.clickable { cursor: pointer; }
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 8px;
-  padding: 8px 20px 12px;
+  gap: 6px;
+  padding: 4px 14px 6px;
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
   color: var(--muted);
-  font-size: 0.78rem;
-  border-top: 1px solid var(--line);
-  background: rgba(255, 252, 246, 0.7);
+  opacity: 0.72;
+  user-select: none;
+  pointer-events: none;
+  border-top: 1px solid rgba(217, 210, 196, 0.55);
+  background: transparent;
 }
 .app-credit-logo {
   height: 1em;
@@ -374,6 +378,7 @@ table.data tr.clickable { cursor: pointer; }
 .app-credit .tm {
   font-size: 0.65em;
   vertical-align: super;
+  line-height: 0;
 }
 
 .toast {
