@@ -1,4 +1,4 @@
-import React, { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
+﻿import React, { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import type { DiaryEntry, Food, MealType } from '../../../shared/types'
 import { scaleMinerals } from '../../../shared/minerals'
 import { todayIso } from '../lib/format'
@@ -231,7 +231,7 @@ export default function DiaryPage({ onToast }: Props): React.JSX.Element {
         </div>
         <div className="card">
           <div className="label">Exercise</div>
-          <div className="value">−{Math.round(exerciseKcal)}</div>
+          <div className="value">âˆ’{Math.round(exerciseKcal)}</div>
         </div>
         <div className="card">
           <div className="label">Remaining</div>
@@ -242,7 +242,7 @@ export default function DiaryPage({ onToast }: Props): React.JSX.Element {
         <div className="card">
           <div className="label">Protein / Carbohydrate / Fat</div>
           <div className="value small-value">
-            {Math.round(dayTotals.protein)} g · {Math.round(dayTotals.carbs)} g ·{' '}
+            {Math.round(dayTotals.protein)} g Â· {Math.round(dayTotals.carbs)} g Â·{' '}
             {Math.round(dayTotals.fat)} g
           </div>
         </div>
@@ -277,8 +277,8 @@ export default function DiaryPage({ onToast }: Props): React.JSX.Element {
               <input
                 className="input"
                 type="number"
-                min="0.1"
-                step="0.1"
+                min="0.5"
+                step="0.5"
                 value={qty}
                 onChange={(e) => setQty(e.target.value)}
               />
@@ -313,11 +313,11 @@ export default function DiaryPage({ onToast }: Props): React.JSX.Element {
                   className="input"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Type to filter… (all foods shown when empty)"
+                  placeholder="Type to filterâ€¦ (all foods shown when empty)"
                 />
               </label>
               {foodsLoading && foods.length === 0 ? (
-                <p className="muted">Loading foods…</p>
+                <p className="muted">Loading foodsâ€¦</p>
               ) : foods.length === 0 ? (
                 <div className="empty">
                   <h3>No foods in your database</h3>
@@ -356,7 +356,7 @@ export default function DiaryPage({ onToast }: Props): React.JSX.Element {
                           </td>
                           <td>
                             {f.name}
-                            {f.brand ? ` · ${f.brand}` : ''}
+                            {f.brand ? ` Â· ${f.brand}` : ''}
                           </td>
                           <td>{f.servingLabel}</td>
                           <td>{f.kcal}</td>
@@ -368,7 +368,7 @@ export default function DiaryPage({ onToast }: Props): React.JSX.Element {
                     </tbody>
                   </table>
                   {foods.length > 80 ? (
-                    <p className="muted small">Showing first 80 of {foods.length} — refine search.</p>
+                    <p className="muted small">Showing first 80 of {foods.length} â€” refine search.</p>
                   ) : (
                     <p className="muted small">{foods.length} foods available</p>
                   )}
@@ -451,8 +451,8 @@ export default function DiaryPage({ onToast }: Props): React.JSX.Element {
             <div className="panel-header">
               <h2>{m.label}</h2>
               <span className="muted">
-                {Math.round(totals.kcal)} kcal · Protein {Math.round(totals.protein)} g ·
-                Carbohydrate {Math.round(totals.carbs)} g · Fat {Math.round(totals.fat)} g
+                {Math.round(totals.kcal)} kcal Â· Protein {Math.round(totals.protein)} g Â·
+                Carbohydrate {Math.round(totals.carbs)} g Â· Fat {Math.round(totals.fat)} g
               </span>
               <div className="spacer" />
               <button type="button" className="btn compact" onClick={() => openAdd(m.id)}>
@@ -513,7 +513,7 @@ export default function DiaryPage({ onToast }: Props): React.JSX.Element {
                                 onClose={() => setDetailId(null)}
                                 data={{
                                   name: e.name,
-                                  servingLabel: `${e.servingQty} × serving`,
+                                  servingLabel: `${e.servingQty} Ã— serving`,
                                   servingQty: e.servingQty,
                                   kcal: e.kcal,
                                   protein: e.protein,
