@@ -1,4 +1,4 @@
-:root {
+﻿:root {
   --sage: #5f7d65;
   --sage-2: #6f8f76;
   --sage-deep: #4a6350;
@@ -364,6 +364,13 @@ table.data tr.clickable { cursor: pointer; }
   border-top: 1px solid var(--line);
   background: rgba(255, 252, 246, 0.7);
 }
+.app-credit-logo {
+  height: 1em;
+  width: auto;
+  object-fit: contain;
+  flex-shrink: 0;
+  opacity: 0.9;
+}
 .app-credit .tm {
   font-size: 0.65em;
   vertical-align: super;
@@ -381,3 +388,4 @@ table.data tr.clickable { cursor: pointer; }
   z-index: 50;
   max-width: 360px;
 }
+

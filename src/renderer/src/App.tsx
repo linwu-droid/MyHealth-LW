@@ -1,6 +1,7 @@
-import type React from 'react'
+﻿import type React from 'react'
 import { useCallback, useState } from 'react'
 import appIcon from './assets/app-icon.png'
+import revoLogo from './assets/revocon-logo.png'
 import HomePage from './pages/HomePage'
 import DiaryPage from './pages/DiaryPage'
 import FoodsPage from './pages/FoodsPage'
@@ -66,6 +67,7 @@ export default function App(): React.JSX.Element {
         </main>
 
         <footer className="app-credit" title="RevoCon">
+          <img src={revoLogo} alt="" className="app-credit-logo" height={13} />
           <span>
             RevoCon<sup className="tm">™</sup> · L.W.
           </span>
