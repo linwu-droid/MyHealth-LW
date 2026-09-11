@@ -226,7 +226,7 @@ function buildPieSvg(
   return `<div class="chart-block">
   ${titleBlock}
   <svg viewBox="0 0 320 210" width="320" height="210" role="img" aria-label="${esc(ariaLabel)}">
-    <rect width="320" height="210" fill="#f5f0e6"/>
+    <rect width="320" height="210" fill="#faf8f3"/>
     ${paths.join('\n    ')}
     <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#c9d4c4" stroke-width="3"/>
     <g font-family="Segoe UI, sans-serif" font-size="11">
@@ -284,8 +284,11 @@ function buildMealPieSvg(meals: MealBreakdown): string {
 type BarItem = { label: string; pct: number; actual: string; goal: string }
 
 /**
- * Horizontal bars: 100% = goal mark (vertical line). Fill uses a shared scale so
- * values above goal extend past the 100% line (not clamped into the 100% track).
+ * Horizontal bars vs % of goal.
+ * If every item is ≤100%: scale is 100 — colored fill = actual %, light remainder
+ * track fills the rest (no 100% label/line, no overflow stubs).
+ * If any item is >100%: scaleMax = ceil(max/10)*10 (min 110); fill may extend
+ * past 100%; show a 100% marker line only in that case.
  */
 function buildHBarChartSvg(title: string, items: BarItem[], heightPer = 28): string {
   if (items.length === 0) return ''
@@ -296,10 +299,14 @@ function buildHBarChartSvg(title: string, items: BarItem[], heightPer = 28): str
   const width = left + trackW + rightPad
   const height = top + items.length * heightPer + 20
 
-  const maxPct = Math.max(100, ...items.map((it) => Math.max(0, it.pct)))
-  // Keep proportional scale; give at least a little room past 100% so overflow is visible.
-  const scaleMax = Math.max(120, Math.ceil(maxPct / 10) * 10)
+  const pcts = items.map((it) => Math.max(0, it.pct))
+  const maxPct = Math.max(0, ...pcts)
+  const allAtOrBelowGoal = pcts.every((p) => p <= 100)
+  const scaleMax = allAtOrBelowGoal
+    ? 100
+    : Math.max(110, Math.ceil(maxPct / 10) * 10)
   const goalX = left + (100 / scaleMax) * trackW
+  const trackFill = '#eef3ea'
 
   const rows = items
     .map((it, i) => {
@@ -309,19 +316,26 @@ function buildHBarChartSvg(title: string, items: BarItem[], heightPer = 28): str
       const fill =
         pct >= 90 && pct <= 110 ? '#6f9f7a' : pct < 70 ? '#c9a46a' : pct > 110 ? '#c47a6a' : '#8fbc8f'
       return `<text x="8" y="${y + 14}" fill="#3d5a45" font-size="10" font-family="Segoe UI, sans-serif">${esc(it.label)}</text>
-    <rect x="${left}" y="${y + 2}" width="${trackW}" height="16" rx="4" fill="#e8efe4"/>
+    <rect x="${left}" y="${y + 2}" width="${trackW}" height="16" rx="4" fill="${trackFill}"/>
     <rect x="${left}" y="${y + 2}" width="${Math.max(pct > 0 ? 2 : 0, w)}" height="16" rx="4" fill="${fill}"/>
     <text x="${left + trackW + 8}" y="${y + 14}" fill="#2c3228" font-size="10" font-family="Segoe UI, sans-serif">${Math.round(pct)}%</text>`
     })
     .join('\n')
 
+  const goalLabel = allAtOrBelowGoal
+    ? ''
+    : `<text x="${goalX}" y="18" text-anchor="middle" fill="#2f6f4e" font-size="9" font-family="Segoe UI, sans-serif" font-weight="600">100%</text>`
+  const goalLine = allAtOrBelowGoal
+    ? ''
+    : `<line x1="${goalX}" y1="${top - 4}" x2="${goalX}" y2="${height - 12}" stroke="#2f6f4e" stroke-width="1.5" stroke-dasharray="3 2"/>`
+
   return `<div class="chart-block">
   <div class="chart-title">${esc(title)}</div>
   <svg viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" role="img" aria-label="${esc(title)}">
-    <rect width="${width}" height="${height}" fill="#f5f0e6"/>
-    <text x="${goalX}" y="18" text-anchor="middle" fill="#2f6f4e" font-size="9" font-family="Segoe UI, sans-serif" font-weight="600">100% goal</text>
+    <rect width="${width}" height="${height}" fill="#faf8f3"/>
+    ${goalLabel}
     ${rows}
-    <line x1="${goalX}" y1="${top - 4}" x2="${goalX}" y2="${height - 12}" stroke="#2f6f4e" stroke-width="1.5" stroke-dasharray="3 2"/>
+    ${goalLine}
   </svg>
 </div>`
 }
@@ -603,7 +617,7 @@ function buildAnalysisHtml(
   body {
     font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
     color: #2c3228;
-    background: #f5f0e6;
+    background: #faf8f3;
     font-size: 11pt;
     line-height: 1.45;
     margin: 0;
