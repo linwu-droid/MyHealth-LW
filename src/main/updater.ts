@@ -1,4 +1,4 @@
-﻿import { app, BrowserWindow, dialog, ipcMain } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain } from 'electron'
 import { autoUpdater } from 'electron-updater'
 
 export type UpdateCheckResult = {

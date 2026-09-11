@@ -1,4 +1,4 @@
-﻿import type { Food, OnlineFoodCandidate } from '../shared/types'
+import type { Food, OnlineFoodCandidate } from '../shared/types'
 import {
   normalizeMinerals,
   roundMineral,
@@ -22,7 +22,7 @@ type OffNutriments = {
   carbohydrates_serving?: number
   fat_100g?: number
   fat_serving?: number
-  // Minerals ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â OFF units vary; helpers normalize to mg (Se/I Ãƒâ€šÃ‚Âµg)
+  // Minerals ├â┬ó├óΓÇÜ┬¼├óΓé¼┬¥ OFF units vary; helpers normalize to mg (Se/I ├âΓÇÜ├é┬╡g)
   sodium_100g?: number
   sodium_serving?: number
   salt_100g?: number
@@ -85,11 +85,11 @@ function foodKey(name: string, brand?: string): string {
 /** OFF often stores sodium/salt in grams; convert to mg when value looks like g. */
 function sodiumMgFromOff(sodium: number | null, salt: number | null): number | undefined {
   if (sodium !== null && Number.isFinite(sodium)) {
-    // Typical sodium_100g is grams (0.01ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“2). Values > 20 are already mg-ish.
+    // Typical sodium_100g is grams (0.01├â┬ó├óΓÇÜ┬¼├óΓé¼┼ô2). Values > 20 are already mg-ish.
     return roundMineral(sodium <= 20 ? sodium * 1000 : sodium)
   }
   if (salt !== null && Number.isFinite(salt)) {
-    // salt (g) ÃƒÂ¢Ã¢â‚¬Â°Ã‹â€  40% sodium ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ mg
+    // salt (g) ├â┬ó├óΓé¼┬░├ïΓÇá 40% sodium ├â┬ó├óΓé¼┬á├óΓé¼Γäó mg
     return roundMineral(salt * 400)
   }
   return undefined
@@ -116,7 +116,7 @@ function pickOffMineral(
 }
 
 /**
- * Map Open Food Facts nutriments ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ MineralMap (mg; selenium/iodine Ãƒâ€šÃ‚Âµg).
+ * Map Open Food Facts nutriments ├â┬ó├óΓé¼┬á├óΓé¼Γäó MineralMap (mg; selenium/iodine ├âΓÇÜ├é┬╡g).
  * Uses serving values when macros came from serving; otherwise per-100g.
  */
 function mineralsFromOff(n: OffNutriments, preferServing: boolean): MineralMap | undefined {
@@ -142,7 +142,7 @@ function mineralsFromOff(n: OffNutriments, preferServing: boolean): MineralMap |
   for (const key of simple) {
     const v = pickOffMineral(n, key, preferServing)
     if (v === null) continue
-    // OFF mineral_100g is usually mg (Se/I often Ãƒâ€šÃ‚Âµg already)
+    // OFF mineral_100g is usually mg (Se/I often ├âΓÇÜ├é┬╡g already)
     out[key] = roundMineral(v)
   }
   return normalizeMinerals(out)
@@ -388,7 +388,7 @@ const COMMON_QUERIES = [
 ]
 
 /**
- * Fetches ~200ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“500 everyday foods from Open Food Facts via many small searches.
+ * Fetches ~200├â┬ó├óΓÇÜ┬¼├óΓé¼┼ô500 everyday foods from Open Food Facts via many small searches.
  * Dedupes by name+brand and skips products without usable kcal.
  */
 export async function fetchCommonFoodsPack(
@@ -1382,7 +1382,7 @@ const VITAMIN_SEED: OnlineFoodCandidate[] = [
   { sourceId: 'seed-vit-krill', source: 'openfoodfacts', name: 'Krill oil softgel', servingLabel: '1 softgel', kcal: 5, protein: 0, carbs: 0, fat: 0.5 },
   { sourceId: 'seed-vit-fibre', source: 'openfoodfacts', name: 'Fibre supplement powder', servingLabel: '1 scoop (5 g)', kcal: 10, protein: 0, carbs: 4, fat: 0 },
   { sourceId: 'seed-vit-melatonin', source: 'openfoodfacts', name: 'Melatonin tablet', servingLabel: '1 tablet', kcal: 1, protein: 0, carbs: 0.2, fat: 0 },
-  // --- AU Chemist Warehouseâ€“style brand range (DATA_VERSION 10) ---
+  // --- AU Chemist WarehouseΓÇôstyle brand range (DATA_VERSION 10) ---
   { sourceId: 'seed-vit-thompsons-ginkgo-6000', source: 'openfoodfacts', brand: "Thompson's", name: 'One-A-Day Ginkgo 6000', servingLabel: '1 tablet', kcal: 2, protein: 0, carbs: 0.3, fat: 0 },
   { sourceId: 'seed-vit-thompsons-ginkgo-leaf', source: 'openfoodfacts', brand: "Thompson's", name: 'Ginkgo Leaf Extract 6000', servingLabel: '1 tablet', kcal: 2, protein: 0, carbs: 0.3, fat: 0 },
   { sourceId: 'seed-vit-blackmores-ginkgo-6000', source: 'openfoodfacts', brand: 'Blackmores', name: 'Ginkgo 6000mg', servingLabel: '1 tablet', kcal: 2, protein: 0, carbs: 0.3, fat: 0 },

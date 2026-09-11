@@ -1,4 +1,4 @@
-﻿; Force install directory folder name to MyHealth (productName already MyHealth;
+; Force install directory folder name to MyHealth (productName already MyHealth;
 ; this keeps upgrades on the same AppId without wiping AppData).
 !macro preInit
   SetRegView 64

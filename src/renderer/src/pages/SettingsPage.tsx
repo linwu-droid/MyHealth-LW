@@ -1,4 +1,4 @@
-﻿import type React from 'react'
+import type React from 'react'
 import { useEffect, useState } from 'react'
 import type { AppSettings, MineralKey, WeightUnit } from '../../../shared/types'
 import type { SexOption } from '../../../shared/weight'

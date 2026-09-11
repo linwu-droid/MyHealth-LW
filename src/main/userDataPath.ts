@@ -1,4 +1,4 @@
-﻿import { app } from 'electron'
+import { app } from 'electron'
 import { copyFileSync, existsSync, mkdirSync, readdirSync, renameSync, statSync } from 'fs'
 import { join } from 'path'
 

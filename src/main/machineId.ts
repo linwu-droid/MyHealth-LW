@@ -1,4 +1,4 @@
-﻿import { createHash } from 'crypto'
+import { createHash } from 'crypto'
 import { execSync } from 'child_process'
 import { hostname, userInfo } from 'os'
 

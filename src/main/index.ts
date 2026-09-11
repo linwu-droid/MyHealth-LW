@@ -1,4 +1,4 @@
-﻿import { app, shell, BrowserWindow, ipcMain, Menu } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, Menu } from 'electron'
 import { migrateAndSetUserDataPath } from './userDataPath'
 import { setupAutoUpdater } from './updater'
 

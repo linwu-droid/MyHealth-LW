@@ -1,4 +1,4 @@
-﻿import type { MineralKey, MineralMap } from './minerals'
+import type { MineralKey, MineralMap } from './minerals'
 import type { PortionUnit } from './portionUnits'
 export type { PortionUnit } from './portionUnits'
 export type { MineralKey, MineralMap } from './minerals'
