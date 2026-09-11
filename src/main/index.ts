@@ -207,7 +207,7 @@ function registerIpc(getWindow: () => BrowserWindow | null): void {
           fat: hit.fat
         })
       } catch {
-        // offline / OFF down ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â leave unmatched
+        // offline / OFF down — leave unmatched
       }
     }
     return getPortionPlan(days, offline)

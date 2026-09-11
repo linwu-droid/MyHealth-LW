@@ -345,7 +345,7 @@ export default function SettingsPage({ onToast, onReset }: Props): React.JSX.Ele
         </div>
         <p className="muted small" style={{ marginTop: 0 }}>
           Defaults follow general adult AU/NZ NRV / WHO guidance (sodium ≈ 2000 mg suggested
-          target; iron/zinc mid-range). Override any value below. Selenium and iodine are in Âµg;
+          target; iron/zinc mid-range). Override any value below. Selenium and iodine are in µg;
           others in mg.
         </p>
         <div className="form-grid">

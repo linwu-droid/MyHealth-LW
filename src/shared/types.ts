@@ -261,7 +261,7 @@ export interface NutritionAnalysis {
   daysWithEntries: number
   entryCount: number
   totals: MacroTotals
-  /** Totals Ã· days in window (includes zero days). */
+  /** Totals ÷ days in window (includes zero days). */
   averagePerDay: MacroTotals
   /** Compared against daily goals (actual = day total or averagePerDay). */
   vsGoals: {
@@ -278,7 +278,7 @@ export interface NutritionAnalysis {
   notes: string[]
   /** Period mineral totals (mg / ug). */
   mineralTotals: MineralMap
-  /** Mineral totals Ã· days in window. */
+  /** Mineral totals ÷ days in window. */
   mineralAveragePerDay: MineralMap
   /** Compared against daily mineral goals. */
   vsMineralGoals: Partial<Record<MineralKey, MacroVsGoal>>

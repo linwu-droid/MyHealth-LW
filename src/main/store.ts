@@ -52,13 +52,13 @@ function defaultSettings(): AppSettings {
     sex: '',
     weightGoalKg: undefined,
     weightStartKg: undefined,
-    // AU/NZ NRV / WHO-ish adult defaults ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â see shared/minerals.ts
+    // AU/NZ NRV / WHO-ish adult defaults — see shared/minerals.ts
     mineralGoals: defaultMineralGoals()
   }
 }
 
 function seedFoods(): Food[] {
-  // Approximate USDA-style minerals per listed serving (mg; Se/I in Ãƒâ€šÃ‚Âµg). Undefined when unknown.
+  // Approximate USDA-style minerals per listed serving (mg; Se/I in µg). Undefined when unknown.
   const items: Omit<Food, 'id'>[] = [
     { name: 'Chicken breast, grilled', brand: '', servingLabel: '100 g', kcal: 165, protein: 31, carbs: 0, fat: 3.6,
       minerals: { sodium: 74, potassium: 256, calcium: 15, magnesium: 29, phosphorus: 228, iron: 1, zinc: 1, copper: 0.05, manganese: 0.02, selenium: 27, iodine: 7 } },
