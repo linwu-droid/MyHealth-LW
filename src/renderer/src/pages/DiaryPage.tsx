@@ -301,7 +301,7 @@ export default function DiaryPage({ onToast }: Props): React.JSX.Element {
         </div>
         <div className="card">
           <div className="label">Exercise</div>
-          <div className="value">{Math.round(exerciseKcal)} Kcal</div>
+          <div className="value">-{Math.round(exerciseKcal)} Kcal</div>
         </div>
         <div className="card">
           <div className="label">Remaining</div>
