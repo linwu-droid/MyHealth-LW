@@ -1,4 +1,4 @@
-﻿import type React from 'react'
+import type React from 'react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { Food, OnlineFoodCandidate } from '../../../shared/types'
 
@@ -14,6 +14,23 @@ const blank = {
   carbs: '',
   fat: ''
 }
+const DRINK_SEARCH_CHIPS = [
+  'water',
+  'black coffee',
+  'latte',
+  'cappuccino',
+  'flat white',
+  'espresso',
+  'tea',
+  'orange juice',
+  'apple juice',
+  'cola',
+  'diet cola',
+  'almond milk',
+  'oat milk',
+  'smoothie',
+  'sports drink'
+]
 
 export default function FoodsPage({ onToast }: Props): React.JSX.Element {
   const [tab, setTab] = useState<Tab>('mine')
@@ -28,7 +45,7 @@ export default function FoodsPage({ onToast }: Props): React.JSX.Element {
   const [selected, setSelected] = useState<Record<string, boolean>>({})
   const [searching, setSearching] = useState(false)
   const [importing, setImporting] = useState(false)
-  const [packing, setPacking] = useState(false)
+  const [packingKind, setPackingKind] = useState<'foods' | 'drinks' | null>(null)
 
   const reload = useCallback(async () => {
     setFoods(await window.api.listFoods(query))
@@ -175,7 +192,7 @@ export default function FoodsPage({ onToast }: Props): React.JSX.Element {
   }
 
   async function importCommonPack(): Promise<void> {
-    setPacking(true)
+    setPackingKind('foods')
     try {
       const res = await window.api.importCommonFoodsPack()
       onToast(
@@ -185,7 +202,37 @@ export default function FoodsPage({ onToast }: Props): React.JSX.Element {
     } catch (err) {
       onToast(err instanceof Error ? err.message : 'Common pack import failed')
     } finally {
-      setPacking(false)
+      setPackingKind(null)
+    }
+  }
+
+  async function importDrinksPack(): Promise<void> {
+    setPackingKind('drinks')
+    try {
+      const res = await window.api.importDrinksPack()
+      onToast(
+        `Drinks pack: fetched ${res.fetched}, imported ${res.created}, skipped ${res.skipped}`
+      )
+      await reload()
+    } catch (err) {
+      onToast(err instanceof Error ? err.message : 'Drinks pack import failed')
+    } finally {
+      setPackingKind(null)
+    }
+  }
+
+  async function searchDrinkChip(term: string): Promise<void> {
+    setOnlineQuery(term)
+    setSearching(true)
+    try {
+      const results = await window.api.searchNutrition(term)
+      setOnlineResults(results)
+      setSelected({})
+      if (results.length === 0) onToast('No drinks/foods with usable calories found')
+    } catch (err) {
+      onToast(err instanceof Error ? err.message : 'Online search failed')
+    } finally {
+      setSearching(false)
     }
   }
 
@@ -380,7 +427,7 @@ export default function FoodsPage({ onToast }: Props): React.JSX.Element {
               <input
                 className="input"
                 style={{ flex: 1, minWidth: 180, marginTop: 0 }}
-                placeholder="e.g. greek yogurt, chicken breast…"
+                placeholder="e.g. latte, orange juice, greek yogurt…"
                 value={onlineQuery}
                 onChange={(e) => setOnlineQuery(e.target.value)}
                 onKeyDown={(e) => {
@@ -396,9 +443,26 @@ export default function FoodsPage({ onToast }: Props): React.JSX.Element {
                 {searching ? 'Searching…' : 'Search'}
               </button>
             </div>
+            <div className="chip-row" role="group" aria-label="Drink search shortcuts">
+              <span className="muted small" style={{ marginRight: 4 }}>
+                Drinks:
+              </span>
+              {DRINK_SEARCH_CHIPS.map((term) => (
+                <button
+                  key={term}
+                  type="button"
+                  className={`chip${onlineQuery === term ? ' active' : ''}`}
+                  disabled={searching || packingKind !== null}
+                  onClick={() => void searchDrinkChip(term)}
+                >
+                  {term}
+                </button>
+              ))}
+            </div>
             <p className="muted small" style={{ marginTop: 0 }}>
               Prefers per-serving nutrition when available; otherwise uses per 100 g. Products
-              without usable calories are skipped.
+              without usable calories are skipped. Log drinks from Diary like any food (any meal /
+              Snacks works well).
             </p>
           </div>
 
@@ -409,15 +473,36 @@ export default function FoodsPage({ onToast }: Props): React.JSX.Element {
               <button
                 type="button"
                 className="btn primary"
-                disabled={packing}
+                disabled={packingKind !== null}
                 onClick={() => void importCommonPack()}
               >
-                {packing ? 'Importing pack…' : 'Import common foods pack'}
+                {packingKind === 'foods' ? 'Importing pack…' : 'Import common foods pack'}
               </button>
             </div>
             <p className="muted small" style={{ margin: 0 }}>
               Pulls roughly 200–350 everyday items via many small Open Food Facts searches.
               Duplicates (same name + brand) are skipped. May take a minute.
+            </p>
+          </div>
+
+          <div className="panel">
+            <div className="panel-header">
+              <h2>Import drinks pack</h2>
+              <div className="spacer" />
+              <button
+                type="button"
+                className="btn primary"
+                disabled={packingKind !== null}
+                onClick={() => void importDrinksPack()}
+              >
+                {packingKind === 'drinks' ? 'Importing drinks…' : 'Import drinks pack'}
+              </button>
+            </div>
+            <p className="muted small" style={{ margin: 0 }}>
+              One-click set of everyday drinks (water, coffees, teas, juices, soft drinks, milks,
+              smoothies, sports drinks, plus a few beers/wines). Starts from a curated nutrition
+              seed, then fills in Open Food Facts matches. Duplicates skipped. Use in Diary like
+              any food.
             </p>
           </div>
 
@@ -456,7 +541,7 @@ export default function FoodsPage({ onToast }: Props): React.JSX.Element {
             {onlineResults.length === 0 ? (
               <div className="empty">
                 <h3>No results yet</h3>
-                <p>Search above, or import the common foods pack.</p>
+                <p>Search above, use a drink chip, or import a foods/drinks pack.</p>
               </div>
             ) : (
               <div className="table-wrap">
