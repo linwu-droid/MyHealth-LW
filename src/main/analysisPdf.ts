@@ -25,6 +25,164 @@ function vsLine(label: string, actual: number, goal: number, unit: string, pct: 
   return `<tr><td>${esc(label)}</td><td>${fmt(actual, unit)}</td><td>${fmt(goal, unit)}</td><td>${Math.round(pct)}%</td></tr>`
 }
 
+/** Mirror PlateVisual classify heuristics (main process cannot import renderer). */
+const VEG_RE =
+  /veg|spinach|broccoli|lettuce|cucumber|tomato|capsicum|carrot|celery|mushroom|peas|corn|salad|bok|cabbage|zucchini|bean sprout|mixed vegetable|passata|onion|garlic|avocado|kale|asparagus|cauliflower|pumpkin|squash|greens|rocket|arugula|beet|eggplant|aubergine/i
+const PROTEIN_RE =
+  /chicken|beef|pork|lamb|fish|tuna|salmon|egg|tofu|tempeh|prawn|shrimp|ham|turkey|sardine|yoghurt|yogurt|cheese|protein|lentil|chickpea|bean|mince|whey|casein|steak|cottage/i
+const CARB_RE =
+  /rice|pasta|bread|oat|potato|noodle|couscous|quinoa|cereal|muesli|wrap|tortilla|cracker|flour|weet|cornflake|bagel|toast|granola|barley|bulgur|freekeh|porridge/i
+
+type PlateGroup = 'vegetables' | 'carbohydrates' | 'protein'
+
+function classifyFoodGroup(name: string): PlateGroup | null {
+  if (VEG_RE.test(name)) return 'vegetables'
+  if (PROTEIN_RE.test(name)) return 'protein'
+  if (CARB_RE.test(name)) return 'carbohydrates'
+  return null
+}
+
+type PlateShares = {
+  vegetables: number
+  carbohydrates: number
+  protein: number
+  source: 'diary-foods' | 'macro-approx' | 'healthy-default'
+}
+
+/** Diary-derived Protein / Carbohydrate / Vegetables kcal shares (never fat as 3rd slice). */
+function derivePlateShares(a: NutritionAnalysis): PlateShares {
+  const buckets: Record<PlateGroup, number> = {
+    vegetables: 0,
+    carbohydrates: 0,
+    protein: 0
+  }
+  let classifiedKcal = 0
+  let topTotal = 0
+  for (const f of a.topFoods) {
+    topTotal += f.kcal
+    const g = classifyFoodGroup(f.name)
+    if (!g) continue
+    buckets[g] += f.kcal
+    classifiedKcal += f.kcal
+  }
+
+  const thin =
+    a.topFoods.length === 0 ||
+    topTotal <= 0 ||
+    classifiedKcal < topTotal * 0.35 ||
+    classifiedKcal < 50
+
+  if (!thin && classifiedKcal > 0) {
+    return {
+      vegetables: (buckets.vegetables / classifiedKcal) * 100,
+      carbohydrates: (buckets.carbohydrates / classifiedKcal) * 100,
+      protein: (buckets.protein / classifiedKcal) * 100,
+      source: 'diary-foods'
+    }
+  }
+
+  const totalKcal = a.vsGoals.kcal.actual || a.averagePerDay.kcal || a.totals.kcal
+  if (totalKcal > 0) {
+    const protK = Math.max(0, a.vsGoals.protein.actual * 4)
+    const carbK = Math.max(0, a.vsGoals.carbs.actual * 4)
+    // Third slice = leftover after protein+carb macros (veg-like / plant remainder). Do NOT label as fat.
+    const leftover = Math.max(0, totalKcal - protK - carbK)
+    const vegK = Math.max(leftover, totalKcal * 0.2)
+    const sum = protK + carbK + vegK
+    if (sum > 0) {
+      return {
+        vegetables: (vegK / sum) * 100,
+        carbohydrates: (carbK / sum) * 100,
+        protein: (protK / sum) * 100,
+        source: 'macro-approx'
+      }
+    }
+  }
+
+  return { vegetables: 50, carbohydrates: 25, protein: 25, source: 'healthy-default' }
+}
+
+function polar(cx: number, cy: number, r: number, angleDeg: number): [number, number] {
+  const rad = ((angleDeg - 90) * Math.PI) / 180
+  return [cx + r * Math.cos(rad), cy + r * Math.sin(rad)]
+}
+
+function pieSlicePath(cx: number, cy: number, r: number, startPct: number, endPct: number): string {
+  const startAngle = startPct * 3.6
+  const endAngle = endPct * 3.6
+  const [x1, y1] = polar(cx, cy, r, startAngle)
+  const [x2, y2] = polar(cx, cy, r, endAngle)
+  const large = endAngle - startAngle > 180 ? 1 : 0
+  return `M${cx} ${cy} L${x1} ${y1} A${r} ${r} 0 ${large} 1 ${x2} ${y2} Z`
+}
+
+function buildPlatePieSvg(shares: PlateShares): string {
+  const veg = Math.max(0, shares.vegetables)
+  const carb = Math.max(0, shares.carbohydrates)
+  const prot = Math.max(0, shares.protein)
+  const vegEnd = veg
+  const carbEnd = veg + carb
+  const cx = 110
+  const cy = 110
+  const r = 88
+  const sourceNote =
+    shares.source === 'diary-foods'
+      ? 'From diary top foods (name classification)'
+      : shares.source === 'macro-approx'
+        ? 'Approx. from protein/carb macros + veg-like remainder'
+        : 'Healthy plate default 50 / 25 / 25'
+
+  return `<div class="chart-block">
+  <svg viewBox="0 0 320 230" width="320" height="230" role="img" aria-label="Plate proportion pie">
+    <rect width="320" height="230" fill="#f5f0e6"/>
+    <path d="${pieSlicePath(cx, cy, r, 0, vegEnd)}" fill="#8fbc8f"/>
+    <path d="${pieSlicePath(cx, cy, r, vegEnd, carbEnd)}" fill="#e8c47a"/>
+    <path d="${pieSlicePath(cx, cy, r, carbEnd, 100)}" fill="#c47a6a"/>
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#c9d4c4" stroke-width="3"/>
+    <g font-family="Segoe UI, sans-serif" font-size="11">
+      <rect x="210" y="40" width="14" height="14" fill="#8fbc8f" rx="2"/>
+      <text x="230" y="52" fill="#2f4f2f">Vegetables ${Math.round(veg)}%</text>
+      <rect x="210" y="68" width="14" height="14" fill="#e8c47a" rx="2"/>
+      <text x="230" y="80" fill="#5a4020">Carbohydrate ${Math.round(carb)}%</text>
+      <rect x="210" y="96" width="14" height="14" fill="#c47a6a" rx="2"/>
+      <text x="230" y="108" fill="#5a2a22">Protein ${Math.round(prot)}%</text>
+    </g>
+    <text x="10" y="218" fill="#6b7a62" font-size="9" font-family="Segoe UI, sans-serif">${esc(sourceNote)}</text>
+  </svg>
+</div>`
+}
+
+type BarItem = { label: string; pct: number; actual: string; goal: string }
+
+function buildHBarChartSvg(title: string, items: BarItem[], heightPer = 28): string {
+  if (items.length === 0) return ''
+  const left = 118
+  const top = 28
+  const barW = 220
+  const width = 400
+  const height = top + items.length * heightPer + 16
+  const rows = items
+    .map((it, i) => {
+      const y = top + i * heightPer
+      const pct = Math.max(0, it.pct)
+      const w = Math.min(barW, (Math.min(pct, 150) / 150) * barW)
+      const fill = pct >= 90 && pct <= 110 ? '#6f9f7a' : pct < 70 ? '#c9a46a' : '#8fbc8f'
+      return `<text x="8" y="${y + 14}" fill="#3d5a45" font-size="10" font-family="Segoe UI, sans-serif">${esc(it.label)}</text>
+    <rect x="${left}" y="${y + 2}" width="${barW}" height="16" rx="4" fill="#e8efe4"/>
+    <rect x="${left}" y="${y + 2}" width="${Math.max(2, w)}" height="16" rx="4" fill="${fill}"/>
+    <text x="${left + barW + 8}" y="${y + 14}" fill="#2c3228" font-size="10" font-family="Segoe UI, sans-serif">${Math.round(pct)}%</text>`
+    })
+    .join('\n')
+
+  return `<div class="chart-block">
+  <div class="chart-title">${esc(title)}</div>
+  <svg viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" role="img" aria-label="${esc(title)}">
+    <rect width="${width}" height="${height}" fill="#f5f0e6"/>
+    ${rows}
+  </svg>
+</div>`
+}
+
 function buildAnalysisHtml(
   a: NutritionAnalysis,
   displayName: string,
@@ -61,13 +219,71 @@ function buildAnalysisHtml(
     )
     .join('')
 
+  const plateShares = derivePlateShares(a)
+  const platePie = buildPlatePieSvg(plateShares)
+
+  const goalBars = buildHBarChartSvg('Vs goals (% of goal)', [
+    {
+      label: 'Calories',
+      pct: a.vsGoals.kcal.pctOfGoal,
+      actual: fmt(a.vsGoals.kcal.actual, 'kcal'),
+      goal: fmt(a.vsGoals.kcal.goal, 'kcal')
+    },
+    {
+      label: 'Protein',
+      pct: a.vsGoals.protein.pctOfGoal,
+      actual: fmt(a.vsGoals.protein.actual, 'g'),
+      goal: fmt(a.vsGoals.protein.goal, 'g')
+    },
+    {
+      label: 'Carbohydrate',
+      pct: a.vsGoals.carbs.pctOfGoal,
+      actual: fmt(a.vsGoals.carbs.actual, 'g'),
+      goal: fmt(a.vsGoals.carbs.goal, 'g')
+    },
+    {
+      label: 'Fat',
+      pct: a.vsGoals.fat.pctOfGoal,
+      actual: fmt(a.vsGoals.fat.actual, 'g'),
+      goal: fmt(a.vsGoals.fat.goal, 'g')
+    }
+  ])
+
+  const waterPct =
+    water && water.goalMl > 0 ? (water.actualMl / water.goalMl) * 100 : 0
+  const waterBars =
+    water
+      ? buildHBarChartSvg('Water (% of goal)', [
+          {
+            label: a.days > 1 ? 'Water avg/day' : 'Water',
+            pct: waterPct,
+            actual: formatMlExact(water.actualMl),
+            goal: formatMlExact(water.goalMl)
+          }
+        ])
+      : ''
+
+  const mineralBarItems: BarItem[] = MINERAL_KEYS.map((key) => {
+    const vs = a.vsMineralGoals[key]
+    if (!vs) return null
+    const meta = MINERAL_META[key]
+    return {
+      label: meta.short || meta.label,
+      pct: vs.pctOfGoal,
+      actual: fmt(vs.actual, meta.unit),
+      goal: fmt(vs.goal, meta.unit)
+    }
+  }).filter((x): x is BarItem => !!x)
+
+  const mineralBars = buildHBarChartSvg('Minerals (% of goal)', mineralBarItems, 24)
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
 <title>MyHealth L.W Analysis</title>
 <style>
-  @page { margin: 18mm 16mm; }
+  @page { margin: 16mm 14mm; }
   body {
     font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
     color: #2c3228;
@@ -98,6 +314,12 @@ function buildAnalysisHtml(
   .card .label { font-size: 9pt; color: #6b7a62; }
   .card .value { font-size: 16pt; font-weight: 650; color: #2f6f4e; }
   .footer { margin-top: 24px; font-size: 8.5pt; color: #7a8674; }
+  .chart-block { margin: 8px 0 14px; page-break-inside: avoid; }
+  .chart-title { font-size: 10.5pt; color: #3d5a45; font-weight: 650; margin-bottom: 4px; }
+  .charts-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; }
+  details.compact-backup { margin-top: 6px; color: #5f6b5a; font-size: 9.5pt; }
+  details.compact-backup summary { cursor: pointer; color: #2f6f4e; }
+  svg { display: block; max-width: 100%; }
 </style>
 </head>
 <body>
@@ -114,16 +336,24 @@ function buildAnalysisHtml(
   </div>
   <p class="sub">Period totals: ${fmt(a.totals.kcal, 'kcal')} · Protein ${fmt(a.totals.protein, 'g')} · Carbohydrate ${fmt(a.totals.carbs, 'g')} · Fat ${fmt(a.totals.fat, 'g')} · ${a.entryCount} entries</p>
 
+  <h2>Plate proportion</h2>
+  <p class="sub">Protein / Carbohydrate / Vegetables (not fat). Prefer diary food classification.</p>
+  <div class="charts-row">${platePie}</div>
+
   <h2>Vs goals</h2>
-  <table>
-    <thead><tr><th>Nutrient</th><th>Actual</th><th>Goal</th><th>% of goal</th></tr></thead>
-    <tbody>
-      ${vsLine('Calories', a.vsGoals.kcal.actual, a.vsGoals.kcal.goal, 'kcal', a.vsGoals.kcal.pctOfGoal)}
-      ${vsLine('Protein', a.vsGoals.protein.actual, a.vsGoals.protein.goal, 'g', a.vsGoals.protein.pctOfGoal)}
-      ${vsLine('Carbohydrate', a.vsGoals.carbs.actual, a.vsGoals.carbs.goal, 'g', a.vsGoals.carbs.pctOfGoal)}
-      ${vsLine('Fat', a.vsGoals.fat.actual, a.vsGoals.fat.goal, 'g', a.vsGoals.fat.pctOfGoal)}
-    </tbody>
-  </table>
+  ${goalBars}
+  <details class="compact-backup">
+    <summary>Table backup</summary>
+    <table>
+      <thead><tr><th>Nutrient</th><th>Actual</th><th>Goal</th><th>% of goal</th></tr></thead>
+      <tbody>
+        ${vsLine('Calories', a.vsGoals.kcal.actual, a.vsGoals.kcal.goal, 'kcal', a.vsGoals.kcal.pctOfGoal)}
+        ${vsLine('Protein', a.vsGoals.protein.actual, a.vsGoals.protein.goal, 'g', a.vsGoals.protein.pctOfGoal)}
+        ${vsLine('Carbohydrate', a.vsGoals.carbs.actual, a.vsGoals.carbs.goal, 'g', a.vsGoals.carbs.pctOfGoal)}
+        ${vsLine('Fat', a.vsGoals.fat.actual, a.vsGoals.fat.goal, 'g', a.vsGoals.fat.pctOfGoal)}
+      </tbody>
+    </table>
+  </details>
 
   <h2>Macro balance</h2>
   <p>Protein ${a.macroBalance.proteinPct}% · Carbohydrate ${a.macroBalance.carbsPct}% · Fat ${a.macroBalance.fatPct}% of kcal</p>
@@ -131,16 +361,21 @@ function buildAnalysisHtml(
   ${
     water
       ? `<h2>Water</h2>
-  <p>${formatMlExact(water.actualMl)} ${a.days > 1 ? 'avg/day' : 'today'} · Goal ${formatMlExact(water.goalMl)} · ${water.daysLogged}/${a.days} days logged · ${water.goalMl > 0 ? Math.round((water.actualMl / water.goalMl) * 100) : 0}% of goal</p>`
+  ${waterBars}
+  <p class="sub">${formatMlExact(water.actualMl)} ${a.days > 1 ? 'avg/day' : 'today'} · Goal ${formatMlExact(water.goalMl)} · ${water.daysLogged}/${a.days} days logged</p>`
       : ''
   }
 
   <h2>Minerals</h2>
   <p class="sub">Coverage ${a.mineralCoverage.entriesWithData}/${a.mineralCoverage.entryCount} (${Math.round(a.mineralCoverage.pct)}%)</p>
-  <table>
-    <thead><tr><th>Mineral</th><th>Actual</th><th>Goal</th><th>% of goal</th></tr></thead>
-    <tbody>${mineralRows}</tbody>
-  </table>
+  ${mineralBars}
+  <details class="compact-backup">
+    <summary>Mineral table backup</summary>
+    <table>
+      <thead><tr><th>Mineral</th><th>Actual</th><th>Goal</th><th>% of goal</th></tr></thead>
+      <tbody>${mineralRows}</tbody>
+    </table>
+  </details>
 
   ${
     mealRows
@@ -220,8 +455,8 @@ export async function exportAnalysisPdf(
 
     try {
       await pdfWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`)
-      // Brief settle so layout paints before print
-      await new Promise((r) => setTimeout(r, 250))
+      // Brief settle so layout / SVG paints before print
+      await new Promise((r) => setTimeout(r, 350))
       const pdf = await pdfWin.webContents.printToPDF({
         printBackground: true,
         pageSize: 'A4',
@@ -236,3 +471,4 @@ export async function exportAnalysisPdf(
     return { error: err instanceof Error ? err.message : 'PDF export failed' }
   }
 }
+
