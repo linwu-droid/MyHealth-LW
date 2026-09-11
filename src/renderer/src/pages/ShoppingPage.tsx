@@ -20,6 +20,7 @@ export const SHOPPING_UNITS = [
   'L',
   'piece',
   'pieces',
+  'each',
   'pack',
   'bunches',
   'cup',
@@ -33,12 +34,10 @@ export const SHOPPING_UNITS = [
   'bottle',
   'bag',
   'loaf',
-  'dozen',
-  'other'
+  'dozen'
 ] as const
 
 const DEFAULT_UNIT = 'g'
-const OTHER_UNIT = 'other'
 const MAIN_MEALS: MainMealType[] = ['breakfast', 'lunch', 'dinner']
 
 type MealLineItem = {
@@ -52,7 +51,15 @@ type MealLineItem = {
 function unitSelectValue(stored: string | undefined): string {
   if (!stored) return DEFAULT_UNIT
   if ((SHOPPING_UNITS as readonly string[]).includes(stored)) return stored
-  return OTHER_UNIT
+  return 'each'
+}
+
+/** Foods with a non-blank name, sorted A–Z for linked-food selects. */
+function foodsForLinkSelect(foods: Food[]): Food[] {
+  return foods
+    .filter((f) => f.name.trim().length > 0)
+    .slice()
+    .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
 }
 
 function formatMealShort(meal: string): string {
@@ -123,37 +130,23 @@ function formatDailyMealPlanText(plan: PortionPlan): string[] {
 
 function UnitSelect(props: {
   value: string
-  custom: string
   onSelect: (v: string) => void
-  onCustom: (v: string) => void
   onCommit?: () => void
   compact?: boolean
 }): React.JSX.Element {
-  const showCustom = props.value === OTHER_UNIT
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-      <select
-        className={props.compact ? 'input compact-input' : 'input'}
-        value={props.value}
-        onChange={(e) => props.onSelect(e.target.value)}
-        onBlur={() => props.onCommit?.()}
-      >
-        {SHOPPING_UNITS.map((u) => (
-          <option key={u} value={u}>
-            {u}
-          </option>
-        ))}
-      </select>
-      {showCustom && (
-        <input
-          className={props.compact ? 'input compact-input' : 'input'}
-          value={props.custom}
-          onChange={(e) => props.onCustom(e.target.value)}
-          onBlur={() => props.onCommit?.()}
-          placeholder="custom unit"
-        />
-      )}
-    </div>
+    <select
+      className={props.compact ? 'input compact-input' : 'input'}
+      value={props.value}
+      onChange={(e) => props.onSelect(e.target.value)}
+      onBlur={() => props.onCommit?.()}
+    >
+      {SHOPPING_UNITS.map((u) => (
+        <option key={u} value={u}>
+          {u}
+        </option>
+      ))}
+    </select>
   )
 }
 
@@ -219,7 +212,6 @@ export default function ShoppingPage({ onToast }: Props): React.JSX.Element {
   const [name, setName] = useState('')
   const [qty, setQty] = useState('')
   const [unit, setUnit] = useState(DEFAULT_UNIT)
-  const [customUnit, setCustomUnit] = useState('')
   const [foodId, setFoodId] = useState('')
   const [paste, setPaste] = useState('')
   const [showPaste, setShowPaste] = useState(false)
@@ -229,10 +221,7 @@ export default function ShoppingPage({ onToast }: Props): React.JSX.Element {
   const [applying, setApplying] = useState(false)
   const [expandedDay, setExpandedDay] = useState(1)
 
-  const resolvedUnit = useMemo(() => {
-    if (unit === OTHER_UNIT) return customUnit.trim() || undefined
-    return unit || undefined
-  }, [unit, customUnit])
+  const linkedFoods = useMemo(() => foodsForLinkSelect(foods), [foods])
 
   const dayNumbers = useMemo(() => {
     if (!plan) return [] as number[]
@@ -264,14 +253,13 @@ export default function ShoppingPage({ onToast }: Props): React.JSX.Element {
       const created = await window.api.addShopping({
         name: name.trim(),
         quantity,
-        unit: resolvedUnit,
+        unit: unit || undefined,
         foodId: foodId || undefined
       })
       setItems((prev) => [created, ...prev])
       setName('')
       setQty('')
       setUnit(DEFAULT_UNIT)
-      setCustomUnit('')
       setFoodId('')
       onToast('Added to shopping list')
       await reload()
@@ -440,15 +428,7 @@ export default function ShoppingPage({ onToast }: Props): React.JSX.Element {
           </label>
           <label>
             Unit
-            <UnitSelect
-              value={unit}
-              custom={customUnit}
-              onSelect={(v) => {
-                setUnit(v)
-                if (v !== OTHER_UNIT) setCustomUnit('')
-              }}
-              onCustom={setCustomUnit}
-            />
+            <UnitSelect value={unit} onSelect={setUnit} />
           </label>
           <label>
             Link food (optional)
@@ -457,8 +437,8 @@ export default function ShoppingPage({ onToast }: Props): React.JSX.Element {
               value={foodId}
               onChange={(e) => setFoodId(e.target.value)}
             >
-              <option value="">â€” none â€”</option>
-              {foods.map((f) => (
+              <option value="">None</option>
+              {linkedFoods.map((f) => (
                 <option key={f.id} value={f.id}>
                   {f.name}
                   {f.brand ? ` (${f.brand})` : ''}
@@ -524,7 +504,7 @@ export default function ShoppingPage({ onToast }: Props): React.JSX.Element {
                   <ShoppingRow
                     key={item.id}
                     item={item}
-                    foods={foods}
+                    foods={linkedFoods}
                     onToggle={() => void toggleChecked(item)}
                     onSaveQty={(q, u) => void saveQty(item, q, u)}
                     onLink={(id) => void linkFood(item, id)}
@@ -769,25 +749,25 @@ function ShoppingRow(props: {
 }): React.JSX.Element {
   const { item, foods } = props
   const initialSelect = unitSelectValue(item.unit)
+  const unitKnown = !!(
+    item.unit && (SHOPPING_UNITS as readonly string[]).includes(item.unit)
+  )
   const [qty, setQty] = useState(
     item.quantity !== undefined ? String(item.quantity) : ''
   )
   const [unitSel, setUnitSel] = useState(initialSelect)
-  const [custom, setCustom] = useState(
-    initialSelect === OTHER_UNIT ? (item.unit ?? '') : ''
-  )
+  const [unitTouched, setUnitTouched] = useState(false)
 
   useEffect(() => {
-    const sel = unitSelectValue(item.unit)
     setQty(item.quantity !== undefined ? String(item.quantity) : '')
-    setUnitSel(sel)
-    setCustom(sel === OTHER_UNIT ? (item.unit ?? '') : '')
+    setUnitSel(unitSelectValue(item.unit))
+    setUnitTouched(false)
   }, [item.id, item.quantity, item.unit])
 
-  function commitUnit(nextSel: string, nextCustom: string): void {
-    const resolved =
-      nextSel === OTHER_UNIT ? nextCustom.trim() : nextSel
-    props.onSaveQty(qty, resolved)
+  /** Keep unknown stored units until the user explicitly picks a dropdown value. */
+  function unitForSave(sel: string): string {
+    if (!unitTouched && !unitKnown && item.unit) return item.unit
+    return sel
   }
 
   return (
@@ -810,41 +790,20 @@ function ShoppingRow(props: {
           value={qty}
           onChange={(e) => setQty(e.target.value)}
           onBlur={() => {
-            const resolved = unitSel === OTHER_UNIT ? custom.trim() : unitSel
-            props.onSaveQty(qty, resolved)
+            props.onSaveQty(qty, unitForSave(unitSel))
           }}
         />
       </td>
       <td>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <select
-            className="input compact-input"
-            value={unitSel}
-            onChange={(e) => {
-              const v = e.target.value
-              setUnitSel(v)
-              if (v !== OTHER_UNIT) {
-                setCustom('')
-                props.onSaveQty(qty, v)
-              }
-            }}
-          >
-            {SHOPPING_UNITS.map((u) => (
-              <option key={u} value={u}>
-                {u}
-              </option>
-            ))}
-          </select>
-          {unitSel === OTHER_UNIT && (
-            <input
-              className="input compact-input"
-              value={custom}
-              onChange={(e) => setCustom(e.target.value)}
-              onBlur={() => commitUnit(unitSel, custom)}
-              placeholder="custom unit"
-            />
-          )}
-        </div>
+        <UnitSelect
+          compact
+          value={unitSel}
+          onSelect={(v) => {
+            setUnitSel(v)
+            setUnitTouched(true)
+            props.onSaveQty(qty, v)
+          }}
+        />
       </td>
       <td>
         <select
@@ -852,7 +811,7 @@ function ShoppingRow(props: {
           value={item.foodId ?? ''}
           onChange={(e) => props.onLink(e.target.value)}
         >
-          <option value="">â€”</option>
+          <option value="">None</option>
           {foods.map((f) => (
             <option key={f.id} value={f.id}>
               {f.name}

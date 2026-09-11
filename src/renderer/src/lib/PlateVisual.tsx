@@ -2,12 +2,40 @@ import type React from 'react'
 import { useMemo, useRef, useState } from 'react'
 import type { PortionPlan } from '../../../shared/types'
 
+export type PlateMode = 'healthy' | 'muscle'
+
 type PlateShare = {
   vegetables: number
   carbohydrates: number
   protein: number
   labels: { vegetables: string[]; carbohydrates: string[]; protein: string[] }
   source: 'plan' | 'healthy-default'
+}
+
+const MODE_META: Record<
+  PlateMode,
+  {
+    vegetables: number
+    carbohydrates: number
+    protein: number
+    label: string
+    subtitle: string
+  }
+> = {
+  healthy: {
+    vegetables: 50,
+    carbohydrates: 25,
+    protein: 25,
+    label: 'Healthy Eating',
+    subtitle: '2 veg · 1 carb · 1 protein'
+  },
+  muscle: {
+    vegetables: 40,
+    carbohydrates: 20,
+    protein: 40,
+    label: 'Healthy Eating & Muscle Gain',
+    subtitle: '2 veg · 2 protein · 1 carb'
+  }
 }
 
 const VEG_RE =
@@ -24,85 +52,71 @@ function classifyName(name: string): 'vegetables' | 'carbohydrates' | 'protein' 
   return null
 }
 
-/** Derive plate shares from portion plan macros/names, else healthy-plate defaults. */
-export function derivePlateShare(plan: PortionPlan | null): PlateShare {
+/** Collect example food labels from the plan; percentages come from PlateMode. */
+function collectLabels(plan: PortionPlan | null): PlateShare['labels'] {
   const labels = {
     vegetables: [] as string[],
     carbohydrates: [] as string[],
     protein: [] as string[]
   }
-  if (!plan) {
-    return {
-      vegetables: 50,
-      carbohydrates: 25,
-      protein: 25,
-      labels,
-      source: 'healthy-default'
-    }
-  }
-
-  let vegK = 0
-  let carbK = 0
-  let protK = 0
+  if (!plan) return labels
 
   for (const r of plan.items) {
     if (!r.matched || r.servingsPerDay <= 0) continue
     const byName = classifyName(r.name)
-    const kcal = Math.max(0, r.perDay.kcal)
     const pKcal = r.perDay.protein * 4
     const cKcal = r.perDay.carbs * 4
     const fKcal = r.perDay.fat * 9
     let bucket = byName
     if (!bucket) {
-      // Macro-dominant fallback
       if (pKcal >= cKcal && pKcal >= fKcal && r.perDay.protein >= 8) bucket = 'protein'
       else if (cKcal >= pKcal) bucket = 'carbohydrates'
       else if (fKcal > 0 && r.perDay.fat >= 8 && r.perDay.carbs < 5 && r.perDay.protein < 5)
-        bucket = 'vegetables' // oils/veg-ish — keep off plate protein/carb if tiny
+        bucket = 'vegetables'
       else bucket = 'carbohydrates'
     }
     if (bucket === 'vegetables') {
-      vegK += kcal || 40
       if (labels.vegetables.length < 4) labels.vegetables.push(r.name)
     } else if (bucket === 'protein') {
-      protK += kcal || 40
       if (labels.protein.length < 4) labels.protein.push(r.name)
-    } else {
-      carbK += kcal || 40
-      if (labels.carbohydrates.length < 4) labels.carbohydrates.push(r.name)
+    } else if (labels.carbohydrates.length < 4) {
+      labels.carbohydrates.push(r.name)
     }
   }
+  return labels
+}
 
-  const total = vegK + carbK + protK
-  if (total <= 0) {
-    return {
-      vegetables: 50,
-      carbohydrates: 25,
-      protein: 25,
-      labels,
-      source: 'healthy-default'
-    }
-  }
-
-  // Blend toward healthy-plate proportions so the visual stays readable,
-  // while still reflecting the plan (60% plan / 40% healthy target).
-  const planV = (vegK / total) * 100
-  const planC = (carbK / total) * 100
-  // protein remainder derived after veg/carb blend
-  const vegetables = Math.round(planV * 0.6 + 50 * 0.4)
-  const carbohydrates = Math.round(planC * 0.6 + 25 * 0.4)
-  let protein = 100 - vegetables - carbohydrates
-  if (protein < 10) {
-    protein = 10
-  }
-  const sum = vegetables + carbohydrates + protein
+/** Fixed mode ratios for the plate visual; labels still come from the plan when present. */
+export function derivePlateShare(plan: PortionPlan | null, mode: PlateMode = 'healthy'): PlateShare {
+  const meta = MODE_META[mode]
+  const labels = collectLabels(plan)
   return {
-    vegetables: Math.round((vegetables / sum) * 100),
-    carbohydrates: Math.round((carbohydrates / sum) * 100),
-    protein: Math.round((protein / sum) * 100),
+    vegetables: meta.vegetables,
+    carbohydrates: meta.carbohydrates,
+    protein: meta.protein,
     labels,
-    source: 'plan'
+    source: plan && plan.items.some((r) => r.matched) ? 'plan' : 'healthy-default'
   }
+}
+
+function polar(cx: number, cy: number, r: number, angleDeg: number): [number, number] {
+  const rad = ((angleDeg - 90) * Math.PI) / 180
+  return [cx + r * Math.cos(rad), cy + r * Math.sin(rad)]
+}
+
+/** Pie slice from startPct to endPct (0–100), angles from top clockwise. */
+function piePath(cx: number, cy: number, r: number, startPct: number, endPct: number): string {
+  const startAngle = startPct * 3.6
+  const endAngle = endPct * 3.6
+  const [x1, y1] = polar(cx, cy, r, startAngle)
+  const [x2, y2] = polar(cx, cy, r, endAngle)
+  const large = endAngle - startAngle > 180 ? 1 : 0
+  return `M${cx} ${cy} L${x1} ${y1} A${r} ${r} 0 ${large} 1 ${x2} ${y2} Z`
+}
+
+function labelAt(cx: number, cy: number, r: number, startPct: number, endPct: number): [number, number] {
+  const mid = ((startPct + endPct) / 2) * 3.6
+  return polar(cx, cy, r * 0.55, mid)
 }
 
 type Props = {
@@ -111,18 +125,33 @@ type Props = {
 }
 
 /**
- * Healthy-plate style SVG: ~1/2 vegetables, 1/4 carbohydrates, 1/4 protein,
- * biased by the current portion plan when available.
+ * Recommended-plate SVG with two fixed modes:
+ * Healthy Eating (2–1–1 → 50/25/25) and Muscle Gain (2–2–1 → 40/20/40).
  */
 export default function PlateVisual({ plan, onToast }: Props): React.JSX.Element {
-  const share = useMemo(() => derivePlateShare(plan), [plan])
+  const [mode, setMode] = useState<PlateMode>('healthy')
+  const share = useMemo(() => derivePlateShare(plan, mode), [plan, mode])
   const svgRef = useRef<SVGSVGElement | null>(null)
   const [saving, setSaving] = useState(false)
 
-  // Geometry: left half = veg; right half split top carbs / bottom protein
   const vegPct = share.vegetables
   const carbPct = share.carbohydrates
   const protPct = share.protein
+  const meta = MODE_META[mode]
+
+  const vegEnd = vegPct
+  const carbEnd = vegPct + carbPct
+  const vegPath = piePath(180, 180, 140, 0, vegEnd)
+  const carbPath = piePath(180, 180, 140, vegEnd, carbEnd)
+  const protPath = piePath(180, 180, 140, carbEnd, 100)
+  const [vegLx, vegLy] = labelAt(180, 180, 140, 0, vegEnd)
+  const [carbLx, carbLy] = labelAt(180, 180, 140, vegEnd, carbEnd)
+  const [protLx, protLy] = labelAt(180, 180, 140, carbEnd, 100)
+
+  // Divider endpoints at slice boundaries
+  const [d1x, d1y] = polar(180, 180, 140, vegEnd * 3.6)
+  const [d2x, d2y] = polar(180, 180, 140, carbEnd * 3.6)
+  const [d0x, d0y] = polar(180, 180, 140, 0)
 
   async function savePng(): Promise<void> {
     const svg = svgRef.current
@@ -175,11 +204,25 @@ export default function PlateVisual({ plan, onToast }: Props): React.JSX.Element
     <div className="plate-visual">
       <div className="portion-section-header">
         <h3>Recommended plate</h3>
-        <span className="muted small">
-          {share.source === 'plan'
-            ? 'Based on your portion recommendations'
-            : 'Healthy-plate guide (½ veg · ¼ carbs · ¼ protein)'}
-        </span>
+        <span className="muted small">{meta.subtitle}</span>
+      </div>
+      <div className="segmented" role="group" aria-label="Plate mode" style={{ marginBottom: 12 }}>
+        {(
+          [
+            ['healthy', 'Healthy Eating'],
+            ['muscle', 'Healthy Eating & Muscle Gain']
+          ] as const
+        ).map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            className={mode === id ? 'active' : ''}
+            aria-pressed={mode === id}
+            onClick={() => setMode(id)}
+          >
+            {label}
+          </button>
+        ))}
       </div>
       <div className="plate-visual-body">
         <svg
@@ -191,47 +234,75 @@ export default function PlateVisual({ plan, onToast }: Props): React.JSX.Element
           aria-label={`Plate: vegetables ${vegPct}%, carbohydrates ${carbPct}%, protein ${protPct}%`}
         >
           <rect width="360" height="360" fill="#f5f0e6" />
-          {/* Plate rim */}
           <circle cx="180" cy="180" r="150" fill="#fffdf8" stroke="#c9d4c4" strokeWidth="10" />
           <circle cx="180" cy="180" r="140" fill="#f8f4ec" />
-          {/* Vegetables — left semicircle */}
-          <path
-            d="M180 40 A140 140 0 0 0 180 320 Z"
-            fill="#8fbc8f"
-            opacity="0.92"
-          />
-          {/* Carbohydrates — upper right quarter */}
-          <path
-            d="M180 40 A140 140 0 0 1 320 180 L180 180 Z"
-            fill="#e8c47a"
-            opacity="0.95"
-          />
-          {/* Protein — lower right quarter */}
-          <path
-            d="M320 180 A140 140 0 0 1 180 320 L180 180 Z"
-            fill="#c47a6a"
-            opacity="0.92"
-          />
-          {/* Divider lines */}
-          <line x1="180" y1="40" x2="180" y2="320" stroke="#f5f0e6" strokeWidth="3" />
-          <line x1="180" y1="180" x2="320" y2="180" stroke="#f5f0e6" strokeWidth="3" />
-          {/* Labels */}
-          <text x="100" y="175" textAnchor="middle" fill="#2f4f2f" fontSize="13" fontFamily="Segoe UI, sans-serif" fontWeight="650">
+          <path d={vegPath} fill="#8fbc8f" opacity="0.92" />
+          <path d={carbPath} fill="#e8c47a" opacity="0.95" />
+          <path d={protPath} fill="#c47a6a" opacity="0.92" />
+          <line x1="180" y1="180" x2={d0x} y2={d0y} stroke="#f5f0e6" strokeWidth="3" />
+          <line x1="180" y1="180" x2={d1x} y2={d1y} stroke="#f5f0e6" strokeWidth="3" />
+          <line x1="180" y1="180" x2={d2x} y2={d2y} stroke="#f5f0e6" strokeWidth="3" />
+          <text
+            x={vegLx}
+            y={vegLy - 8}
+            textAnchor="middle"
+            fill="#2f4f2f"
+            fontSize="13"
+            fontFamily="Segoe UI, sans-serif"
+            fontWeight="650"
+          >
             Vegetables
           </text>
-          <text x="100" y="195" textAnchor="middle" fill="#2f4f2f" fontSize="12" fontFamily="Segoe UI, sans-serif">
+          <text
+            x={vegLx}
+            y={vegLy + 12}
+            textAnchor="middle"
+            fill="#2f4f2f"
+            fontSize="12"
+            fontFamily="Segoe UI, sans-serif"
+          >
             {vegPct}%
           </text>
-          <text x="250" y="110" textAnchor="middle" fill="#5a4020" fontSize="12" fontFamily="Segoe UI, sans-serif" fontWeight="650">
+          <text
+            x={carbLx}
+            y={carbLy - 8}
+            textAnchor="middle"
+            fill="#5a4020"
+            fontSize="12"
+            fontFamily="Segoe UI, sans-serif"
+            fontWeight="650"
+          >
             Carbs
           </text>
-          <text x="250" y="128" textAnchor="middle" fill="#5a4020" fontSize="12" fontFamily="Segoe UI, sans-serif">
+          <text
+            x={carbLx}
+            y={carbLy + 12}
+            textAnchor="middle"
+            fill="#5a4020"
+            fontSize="12"
+            fontFamily="Segoe UI, sans-serif"
+          >
             {carbPct}%
           </text>
-          <text x="250" y="250" textAnchor="middle" fill="#5a2a22" fontSize="12" fontFamily="Segoe UI, sans-serif" fontWeight="650">
+          <text
+            x={protLx}
+            y={protLy - 8}
+            textAnchor="middle"
+            fill="#5a2a22"
+            fontSize="12"
+            fontFamily="Segoe UI, sans-serif"
+            fontWeight="650"
+          >
             Protein
           </text>
-          <text x="250" y="268" textAnchor="middle" fill="#5a2a22" fontSize="12" fontFamily="Segoe UI, sans-serif">
+          <text
+            x={protLx}
+            y={protLy + 12}
+            textAnchor="middle"
+            fill="#5a2a22"
+            fontSize="12"
+            fontFamily="Segoe UI, sans-serif"
+          >
             {protPct}%
           </text>
           <text x="180" y="348" textAnchor="middle" fill="#6b7a62" fontSize="10" fontFamily="Segoe UI, sans-serif">
