@@ -423,7 +423,7 @@ export default function SettingsPage({ onToast, onReset }: Props): React.JSX.Ele
           <strong>MyHealth</strong> — Food · Weight · Balance
         </p>
         <p className="muted">
-          RevoConâ„¢ · L.W. · Free local desktop tracker
+          RevoCon™ · L.W. · Free local desktop tracker
         </p>
       </div>
     </div>
