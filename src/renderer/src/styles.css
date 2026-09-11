@@ -744,9 +744,10 @@ tr.detail-row > td {
 }
 .plate-visual-body {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 16px;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 20px;
+  flex-wrap: wrap;
 }
 .plate-chart-btn {
   display: flex;
@@ -759,6 +760,7 @@ tr.detail-row > td {
   background: transparent;
   cursor: pointer;
   border-radius: 12px;
+  flex: 0 0 auto;
 }
 .plate-chart-btn:focus-visible {
   outline: 2px solid var(--accent, #2f6f4e);
@@ -771,12 +773,16 @@ tr.detail-row > td {
 .plate-chart-hint {
   user-select: none;
 }
+.plate-foods-side {
+  flex: 1 1 280px;
+  min-width: 240px;
+  max-width: 720px;
+}
 .plate-food-columns {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px 24px;
   width: 100%;
-  max-width: 720px;
 }
 .plate-food-col strong {
   display: block;

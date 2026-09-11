@@ -35,10 +35,14 @@ function isHealthyShelfFood(f: Food): boolean {
 }
 
 const VITAMIN_NAME_RE =
-  /vitamin|multivitamin|supplement|softgel|capsule|tablet|omega-?3|fish oil|probiotic|collagen powder|creatine|electrolyte powder|biotin|coq10|co-?q-?10|glucosamine|turmeric curcumin|ashwagandha|magnesium glycinate|zinc picolinate|folate|methylfolate|prenatal|melatonin|spirulina|krill oil|cod liver|bcaa|l-glutamine|casein protein|plant protein powder|whey protein powder|fibre supplement|evening primrose|iron supplement|liquid iron|calcium \+ vitamin/i
+  /vitamin|multivitamin|supplement|softgel|capsule|tablet|chewable|omega-?3|fish oil|probiotic|collagen powder|creatine|electrolyte powder|biotin|coq10|co-?q-?10|co-enzyme q10|glucosamine|chondroitin|ginkgo|turmeric|curcumin|ashwagandha|magnesium|zinc|folate|folic acid|methylfolate|prenatal|melatonin|spirulina|krill|cod liver|bcaa|l-glutamine|casein protein|plant protein powder|whey protein powder|fibre supplement|evening primrose|iron|liquid iron|calcium|joint care|hair skin nails|ultiboost|ultivite|thiamine|riboflavin|niacin|pantothenic|sleep support|stress (support|relief)/i
+
+const VITAMIN_BRAND_RE =
+  /thompson'?s|blackmores|swisse|ostelin|cenovis|nature'?s own|healthy care|bio-?organics/i
 
 function isVitaminFood(f: Food): boolean {
-  return VITAMIN_NAME_RE.test(f.name)
+  const blob = `${f.name} ${f.brand ?? ''}`
+  return VITAMIN_NAME_RE.test(blob) || VITAMIN_BRAND_RE.test(blob)
 }
 
 const blank = {

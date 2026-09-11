@@ -29,7 +29,7 @@ import { estimateExerciseKcal, resolveMetFromName } from '../shared/exerciseMet'
 import { recommendWaterMl } from '../shared/water'
 
 const STORE_FILE = 'myhealth-lw.json'
-const DATA_VERSION = 9
+const DATA_VERSION = 10
 
 function defaultSettings(): AppSettings {
   return {
@@ -493,13 +493,13 @@ function load(): AppData {
         if (n > 0) migrated = true
       }
     }
-    if (rawVersion < 9) {
+    if (rawVersion < 10) {
       const n = ensureVitaminFoods(cache)
       if (n > 0) migrated = true
     } else {
       // Safety net: if vitamin pack markers are missing, seed anyway.
       const names = new Set(cache.foods.map((f) => f.name.toLowerCase()))
-      if (!names.has('multivitamin tablet') || !names.has('vitamin d3 softgel')) {
+      if (!names.has('multivitamin tablet') || !names.has('one-a-day ginkgo 6000')) {
         const n = ensureVitaminFoods(cache)
         if (n > 0) migrated = true
       }

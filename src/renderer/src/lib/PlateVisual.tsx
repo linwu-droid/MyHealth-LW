@@ -826,7 +826,7 @@ export default function PlateVisual({
           </span>
         </button>
 
-        <div className="plate-food-columns" aria-label="Foods by plate group">
+        <div className="plate-foods-side plate-food-columns" aria-label="Foods by plate group">
           {foodColumns.map((col) => (
             <div key={col.group} className="plate-food-col">
               <strong style={{ color: col.color }}>{col.title}</strong>
