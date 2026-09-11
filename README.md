@@ -1,4 +1,4 @@
-# MyHealth L.W
+# MyHealth
 
 Food, weight and balance tracker for Windows. Local-only JSON storage. No accounts. No paywalls.
 

@@ -192,7 +192,7 @@ function buildAnalysisHtml(
     a.days === 1
       ? a.date
       : `${a.rangeStart} → ${a.rangeEnd} (${a.days} days, ${a.daysWithEntries} logged)`
-  const who = displayName.trim() ? esc(displayName.trim()) : 'MyHealth L.W user'
+  const who = displayName.trim() ? esc(displayName.trim()) : 'MyHealth user'
   const mealRows = a.mealBreakdown
     ? (['breakfast', 'lunch', 'dinner', 'snacks'] as const)
         .map((k) => {
@@ -281,7 +281,7 @@ function buildAnalysisHtml(
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>MyHealth L.W Analysis</title>
+<title>MyHealth Analysis</title>
 <style>
   @page { margin: 16mm 14mm; }
   body {
@@ -323,7 +323,7 @@ function buildAnalysisHtml(
 </style>
 </head>
 <body>
-  <h1>MyHealth L.W</h1>
+  <h1>MyHealth</h1>
   <div class="brand">RevoCon · L.W. · Nutrition analysis report</div>
   <p class="sub">Prepared for ${who} · Range: ${esc(range)} · Generated ${esc(new Date().toISOString().slice(0, 10))}</p>
 
@@ -401,7 +401,7 @@ function buildAnalysisHtml(
       : ''
   }
 
-  <div class="footer">MyHealth L.W · RevoCon · L.W. · Local report — not medical advice.</div>
+  <div class="footer">MyHealth · RevoCon · L.W. · Local report — not medical advice.</div>
 </body>
 </html>`
 }

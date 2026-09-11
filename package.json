@@ -1,7 +1,7 @@
 {
   "name": "myhealth-lw",
   "version": "1.0.0",
-  "description": "MyHealth L.W - Food, weight and balance tracker. RevoCon (TM) - L.W.",
+  "description": "MyHealth - Food, weight and balance tracker. RevoCon (TM) - L.W.",
   "main": "./out/main/index.js",
   "author": "L.W. / RevoCon",
   "homepage": "https://github.com/linwu-droid/MyHealth-LW",

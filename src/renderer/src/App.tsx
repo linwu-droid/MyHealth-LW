@@ -50,7 +50,7 @@ export default function App(): React.JSX.Element {
         <div className="brand">
           <img src={appIcon} alt="" className="brand-mark" width={44} height={44} />
           <div>
-            <h1>MyHealth L.W</h1>
+            <h1>MyHealth</h1>
             <span className="tag">Food · Weight · Balance</span>
           </div>
         </div>

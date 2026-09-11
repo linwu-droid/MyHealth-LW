@@ -1,5 +1,5 @@
 /**
- * Water intake helpers for MyHealth L.W.
+ * Water intake helpers for MyHealth.
  * Adult rule of thumb: ~35 ml per kg body weight, clamped to a sensible band.
  */
 export const WATER_DEFAULT_ML = 2000

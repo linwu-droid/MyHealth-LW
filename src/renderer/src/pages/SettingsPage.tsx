@@ -370,7 +370,7 @@ export default function SettingsPage({ onToast, onReset }: Props): React.JSX.Ele
           <h2>About</h2>
         </div>
         <p>
-          <strong>MyHealth L.W</strong> — Food · Weight · Balance
+          <strong>MyHealth</strong> — Food · Weight · Balance
         </p>
         <p className="muted">
           RevoCon™ · L.W. · Free local desktop tracker

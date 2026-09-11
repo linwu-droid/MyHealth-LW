@@ -69,7 +69,7 @@ function createWindow(): BrowserWindow {
     minHeight: 640,
     show: false,
     autoHideMenuBar: true,
-    title: 'MyHealth L.W',
+    title: 'MyHealth',
     backgroundColor: '#f5f0e6',
     icon: join(__dirname, '../../resources/icon.png'),
     webPreferences: {
@@ -252,7 +252,7 @@ app.commandLine.appendSwitch('disable-gpu-shader-disk-cache')
 const gotSingleInstanceLock = app.requestSingleInstanceLock()
 if (!gotSingleInstanceLock) {
   console.error(
-    'MyHealth L.W is already running. Close the other window and try again.'
+    'MyHealth is already running. Close the other window and try again.'
   )
   app.quit()
 } else {

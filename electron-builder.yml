@@ -1,6 +1,6 @@
 icon: build/icon.ico
 appId: com.myhealthlw.app
-productName: MyHealth L.W
+productName: MyHealth
 copyright: Copyright (c) RevoCon (TM) - L.W.
 directories:
   buildResources: build
@@ -14,12 +14,12 @@ asarUnpack:
   - resources/**
 win:
   icon: build/icon.ico
-  executableName: MyHealthLW
+  executableName: MyHealth
 nsis:
   installerIcon: build/icon.ico
   uninstallerIcon: build/icon.ico
   installerHeaderIcon: build/icon.ico
-  artifactName: MyHealthLW-${version}-setup.${ext}
+  artifactName: MyHealth-${version}-setup.${ext}
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always

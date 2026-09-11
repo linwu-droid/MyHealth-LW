@@ -565,7 +565,7 @@ export default function PlateVisual({
     ctx.font = '10px "Segoe UI", sans-serif'
     ctx.textAlign = 'center'
     ctx.textBaseline = 'alphabetic'
-    ctx.fillText('MyHealth L.W · RevoCon · L.W.', cx, 348 * scale)
+    ctx.fillText('MyHealth · RevoCon · L.W.', cx, 348 * scale)
 
     let dataUrl: string
     try {
@@ -635,7 +635,7 @@ export default function PlateVisual({
     ctx.fillStyle = '#6b7a62'
     ctx.font = '10px "Segoe UI", sans-serif'
     ctx.textAlign = 'center'
-    ctx.fillText('MyHealth L.W · RevoCon · L.W.', cx, 348 * scale)
+    ctx.fillText('MyHealth · RevoCon · L.W.', cx, 348 * scale)
     return { dataUrl: canvas.toDataURL('image/png'), imageCount: 0 }
   }
 
@@ -818,7 +818,7 @@ export default function PlateVisual({
               fontSize="10"
               fontFamily="Segoe UI, sans-serif"
             >
-              MyHealth L.W · RevoCon · L.W.
+              MyHealth · RevoCon · L.W.
             </text>
           </svg>
           <span className="plate-chart-hint muted small">

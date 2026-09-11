@@ -1,5 +1,5 @@
 /**
- * Weight / BMI helpers for MyHealth L.W.
+ * Weight / BMI helpers for MyHealth.
  * Healthy adult BMI band 18.5–24.9 (WHO). Midpoint ~22 used as a single "recommended" figure.
  */
 export type SexOption = 'female' | 'male' | 'other' | ''
