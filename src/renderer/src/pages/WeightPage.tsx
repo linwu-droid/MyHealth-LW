@@ -1,4 +1,4 @@
-import type React from 'react'
+﻿import type React from 'react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { AppSettings, WeightLog } from '../../../shared/types'
 import type { SexOption } from '../../../shared/weight'
@@ -238,10 +238,14 @@ export default function WeightPage({ onToast }: Props): React.JSX.Element {
                     : 'good'
             }`}
           >
-            {toGoal == null ? '—' : Math.abs(toGoal) < 0.05 ? 'At goal' : fmtDelta(toGoal, unit)}
+            {toGoal == null
+              ? '—'
+              : Math.abs(toGoal) < 0.05
+                ? 'At goal'
+                : fmtDelta(-toGoal, unit)}
           </div>
           {toGoal != null && Math.abs(toGoal) >= 0.05 ? (
-            <div className="sub">{toGoal > 0 ? 'Above goal' : 'Below goal'}</div>
+            <div className="sub">to achieve</div>
           ) : null}
         </div>
         <div className="card">
