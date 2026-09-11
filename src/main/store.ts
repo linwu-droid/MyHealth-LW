@@ -476,26 +476,59 @@ export function getPortionPlan(
 export function applyPortionsToDiary(
   date: string,
   plan: PortionPlan,
-  meal: MealType = 'lunch'
+  _meal: MealType = 'lunch'
 ): { added: number } {
   const day = date.slice(0, 10)
+  const meals: MealType[] = ['breakfast', 'lunch', 'dinner']
   let added = 0
   for (const rec of plan.items) {
     if (!rec.matched || !rec.foodId || rec.servingsPerDay <= 0) continue
     const food = load().foods.find((f) => f.id === rec.foodId)
     if (!food) continue
-    addDiary({
-      date: day,
-      meal,
-      foodId: food.id,
-      name: food.name,
-      servingQty: rec.servingsPerDay,
-      kcal: rec.perDay.kcal,
-      protein: rec.perDay.protein,
-      carbs: rec.perDay.carbs,
-      fat: rec.perDay.fat
-    })
-    added++
+    const byMeal = rec.servingsByMeal
+    const hasMealSplit =
+      byMeal && meals.some((m) => (byMeal[m as 'breakfast' | 'lunch' | 'dinner'] ?? 0) > 0)
+    if (hasMealSplit) {
+      for (const meal of meals) {
+        const qty = byMeal[meal as 'breakfast' | 'lunch' | 'dinner'] ?? 0
+        if (qty <= 0) continue
+        const factor = qty / rec.servingsPerDay
+        addDiary({
+          date: day,
+          meal,
+          foodId: food.id,
+          name: food.name,
+          servingQty: qty,
+          kcal: Math.round(rec.perDay.kcal * factor * 10) / 10,
+          protein: Math.round(rec.perDay.protein * factor * 10) / 10,
+          carbs: Math.round(rec.perDay.carbs * factor * 10) / 10,
+          fat: Math.round(rec.perDay.fat * factor * 10) / 10
+        })
+        added++
+      }
+    } else {
+      // Fallback: equal thirds across breakfast / lunch / dinner
+      const third = Math.round((rec.servingsPerDay / 3) * 4) / 4
+      const leftovers = Math.round((rec.servingsPerDay - third * 2) * 4) / 4
+      const qtys = [third, third, leftovers]
+      meals.forEach((meal, idx) => {
+        const qty = qtys[idx]
+        if (qty <= 0) return
+        const factor = qty / rec.servingsPerDay
+        addDiary({
+          date: day,
+          meal,
+          foodId: food.id,
+          name: food.name,
+          servingQty: qty,
+          kcal: Math.round(rec.perDay.kcal * factor * 10) / 10,
+          protein: Math.round(rec.perDay.protein * factor * 10) / 10,
+          carbs: Math.round(rec.perDay.carbs * factor * 10) / 10,
+          fat: Math.round(rec.perDay.fat * factor * 10) / 10
+        })
+        added++
+      })
+    }
   }
   return { added }
 }

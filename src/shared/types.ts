@@ -97,6 +97,21 @@ export type OnlineFoodCandidate = Omit<Food, 'id'> & {
   source: 'openfoodfacts'
 }
 
+/** Main meals used for shopping portion planning (snacks excluded). */
+export type MainMealType = 'breakfast' | 'lunch' | 'dinner'
+
+export interface MealMacroSplit {
+  breakfast: MacroTotals
+  lunch: MacroTotals
+  dinner: MacroTotals
+}
+
+export interface MealServings {
+  breakfast: number
+  lunch: number
+  dinner: number
+}
+
 export interface PortionRecommendation {
   shoppingItemId: string
   name: string
@@ -105,6 +120,10 @@ export interface PortionRecommendation {
   servingsPerDay: number
   servingsForPeriod: number
   servingLabel: string
+  /** Servings allocated to each main meal (sums ≈ servingsPerDay). */
+  servingsByMeal: MealServings
+  /** Which meal(s) this item is suggested for. */
+  suggestedMeals: MainMealType[]
   perDay: MacroTotals
   forPeriod: MacroTotals
   note?: string
@@ -112,9 +131,13 @@ export interface PortionRecommendation {
 
 export interface PortionPlan {
   days: number
+  /** Fraction of daily goals per meal (e.g. 0.3 / 0.35 / 0.35). */
+  mealSplit: { breakfast: number; lunch: number; dinner: number }
   goalsPerDay: MacroTotals
+  goalsPerMeal: MealMacroSplit
   items: PortionRecommendation[]
   totalsPerDay: MacroTotals
+  totalsPerMeal: MealMacroSplit
   totalsPeriod: MacroTotals
   unmatchedCount: number
 }
