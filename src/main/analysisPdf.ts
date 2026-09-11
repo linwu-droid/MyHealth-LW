@@ -284,61 +284,54 @@ function buildMealPieSvg(meals: MealBreakdown): string {
 type BarItem = { label: string; pct: number; actual: string; goal: string }
 
 /**
- * Horizontal bars vs % of goal.
- * If every item is ≤100%: scale is 100 — colored fill = actual %, light remainder
- * track fills the rest (no 100% label/line, no overflow stubs).
- * If any item is >100%: scaleMax = ceil(max/10)*10 (min 110); fill may extend
- * past 100%; show a 100% marker line only in that case.
+ * Horizontal bars — same per-row logic as Water:
+ * - pct <= 100: track = 100% goal width; colored fill = actual %; light remainder = rest.
+ *   No 100% goal label/line on under-goal rows.
+ * - pct > 100: fill covers the full track, then extends past it for the overrun only.
+ *   No chart-wide 100% indicator (vs-goals / minerals never mark under-goal rows).
  */
 function buildHBarChartSvg(title: string, items: BarItem[], heightPer = 28): string {
   if (items.length === 0) return ''
   const left = 132
-  const top = 36
+  const top = 28
   const trackW = 240
+  const overflowPad = 48
   const rightPad = 56
-  const width = left + trackW + rightPad
-  const height = top + items.length * heightPer + 20
-
-  const pcts = items.map((it) => Math.max(0, it.pct))
-  const maxPct = Math.max(0, ...pcts)
-  const allAtOrBelowGoal = pcts.every((p) => p <= 100)
-  const scaleMax = allAtOrBelowGoal
-    ? 100
-    : Math.max(110, Math.ceil(maxPct / 10) * 10)
-  const goalX = left + (100 / scaleMax) * trackW
+  const width = left + trackW + overflowPad + rightPad
+  const height = top + items.length * heightPer + 16
   const trackFill = '#eef3ea'
 
   const rows = items
     .map((it, i) => {
       const y = top + i * heightPer
       const pct = Math.max(0, it.pct)
-      const w = (pct / scaleMax) * trackW
       const fill =
         pct >= 90 && pct <= 110 ? '#6f9f7a' : pct < 70 ? '#c9a46a' : pct > 110 ? '#c47a6a' : '#8fbc8f'
+      const within = Math.min(pct, 100)
+      const fillW = (within / 100) * trackW
+      const over = Math.max(0, pct - 100)
+      const overW = over > 0 ? Math.min(overflowPad, (over / 100) * trackW) : 0
+      const overRect =
+        overW > 0
+          ? `<rect x="${left + trackW}" y="${y + 2}" width="${overW}" height="16" fill="${fill}" opacity="0.85"/>`
+          : ''
       return `<text x="8" y="${y + 14}" fill="#3d5a45" font-size="10" font-family="Segoe UI, sans-serif">${esc(it.label)}</text>
     <rect x="${left}" y="${y + 2}" width="${trackW}" height="16" rx="4" fill="${trackFill}"/>
-    <rect x="${left}" y="${y + 2}" width="${Math.max(pct > 0 ? 2 : 0, w)}" height="16" rx="4" fill="${fill}"/>
-    <text x="${left + trackW + 8}" y="${y + 14}" fill="#2c3228" font-size="10" font-family="Segoe UI, sans-serif">${Math.round(pct)}%</text>`
+    <rect x="${left}" y="${y + 2}" width="${pct > 0 ? Math.max(2, fillW) : 0}" height="16" rx="4" fill="${fill}"/>
+    ${overRect}
+    <text x="${left + trackW + overflowPad + 8}" y="${y + 14}" fill="#2c3228" font-size="10" font-family="Segoe UI, sans-serif">${Math.round(pct)}%</text>`
     })
     .join('\n')
-
-  const goalLabel = allAtOrBelowGoal
-    ? ''
-    : `<text x="${goalX}" y="18" text-anchor="middle" fill="#2f6f4e" font-size="9" font-family="Segoe UI, sans-serif" font-weight="600">100%</text>`
-  const goalLine = allAtOrBelowGoal
-    ? ''
-    : `<line x1="${goalX}" y1="${top - 4}" x2="${goalX}" y2="${height - 12}" stroke="#2f6f4e" stroke-width="1.5" stroke-dasharray="3 2"/>`
 
   return `<div class="chart-block">
   <div class="chart-title">${esc(title)}</div>
   <svg viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" role="img" aria-label="${esc(title)}">
     <rect width="${width}" height="${height}" fill="#faf8f3"/>
-    ${goalLabel}
     ${rows}
-    ${goalLine}
   </svg>
 </div>`
 }
+
 
 function filterFoods(foods: string[], avoidAliases: string[]): string[] {
   return foods.filter((f) => !avoidAliases.some((a) => textMatchesAlias(f, a)))
