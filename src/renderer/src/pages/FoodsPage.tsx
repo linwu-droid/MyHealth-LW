@@ -4,7 +4,7 @@ import type { Food, OnlineFoodCandidate } from '../../../shared/types'
 
 type Props = { onToast: (msg: string) => void }
 type Tab = 'mine' | 'online'
-type FoodKindFilter = 'all' | 'foods' | 'drinks'
+type FoodKindFilter = 'all' | 'foods' | 'drinks' | 'homemade'
 
 const DRINK_SERVING_RE = /ml|cup|oz|litre|liter|bottle/i
 const DRINK_NAME_RE =
@@ -12,6 +12,13 @@ const DRINK_NAME_RE =
 
 function isDrinkFood(f: Food): boolean {
   return DRINK_SERVING_RE.test(f.servingLabel) || DRINK_NAME_RE.test(f.name)
+}
+
+const HOMEMADE_NAME_RE =
+  /fry|fried|steam|omelette|omelet|stir|homemade|scrambled|boiled egg|poached egg|roast|soup|congee|dumpling|wonton|mapo|pancake|porridge|home fries|mashed potato|toast with butter|stew|grilled cheese|french toast|minced beef|bacon fried|sausage fried/i
+
+function isHomemadeFood(f: Food): boolean {
+  return HOMEMADE_NAME_RE.test(f.name)
 }
 
 const blank = {
@@ -55,7 +62,7 @@ export default function FoodsPage({ onToast }: Props): React.JSX.Element {
   const [selected, setSelected] = useState<Record<string, boolean>>({})
   const [searching, setSearching] = useState(false)
   const [importing, setImporting] = useState(false)
-  const [packingKind, setPackingKind] = useState<'foods' | 'drinks' | null>(null)
+  const [packingKind, setPackingKind] = useState<'foods' | 'drinks' | 'homemade' | null>(null)
 
   const reload = useCallback(async () => {
     setFoods(await window.api.listFoods(query))
@@ -76,7 +83,8 @@ export default function FoodsPage({ onToast }: Props): React.JSX.Element {
   const filteredFoods = useMemo(() => {
     if (kindFilter === 'all') return foods
     if (kindFilter === 'drinks') return foods.filter(isDrinkFood)
-    return foods.filter((f) => !isDrinkFood(f))
+    if (kindFilter === 'homemade') return foods.filter((f) => isHomemadeFood(f) && !isDrinkFood(f))
+    return foods.filter((f) => !isDrinkFood(f) && !isHomemadeFood(f))
   }, [foods, kindFilter])
 
   function openCreate(): void {
@@ -238,6 +246,21 @@ export default function FoodsPage({ onToast }: Props): React.JSX.Element {
     }
   }
 
+  async function importHomemadeFoodsPack(): Promise<void> {
+    setPackingKind('homemade')
+    try {
+      const res = await window.api.importHomemadeFoodsPack()
+      onToast(
+        `Homemade pack: fetched ${res.fetched}, imported ${res.created}, skipped ${res.skipped}`
+      )
+      await reload()
+    } catch (err) {
+      onToast(err instanceof Error ? err.message : 'Homemade pack import failed')
+    } finally {
+      setPackingKind(null)
+    }
+  }
+
   async function searchDrinkChip(term: string): Promise<void> {
     setOnlineQuery(term)
     setSearching(true)
@@ -282,12 +305,13 @@ export default function FoodsPage({ onToast }: Props): React.JSX.Element {
       {tab === 'mine' && (
         <>
           <div className="page-header" style={{ marginTop: -8 }}>
-            <div className="segmented" role="group" aria-label="Foods or drinks filter">
+            <div className="segmented" role="group" aria-label="Foods, drinks, or homemade filter">
               {(
                 [
                   ['all', 'All'],
                   ['foods', 'Foods'],
-                  ['drinks', 'Drinks']
+                  ['drinks', 'Drinks'],
+                  ['homemade', 'Homemade']
                 ] as const
               ).map(([id, label]) => (
                 <button
@@ -403,7 +427,7 @@ export default function FoodsPage({ onToast }: Props): React.JSX.Element {
             {filteredFoods.length === 0 ? (
               <div className="empty">
                 <h3>No foods found</h3>
-                <p>Add a food, import online, clear the search, or switch All / Foods / Drinks.</p>
+                <p>Add a food, import online, clear the search, or switch All / Foods / Drinks / Homemade.</p>
               </div>
             ) : (
               <div className="table-wrap">
@@ -544,6 +568,28 @@ export default function FoodsPage({ onToast }: Props): React.JSX.Element {
 
           <div className="panel">
             <div className="panel-header">
+              <h2>Import homemade foods pack</h2>
+              <div className="spacer" />
+              <button
+                type="button"
+                className="btn primary"
+                disabled={packingKind !== null}
+                onClick={() => void importHomemadeFoodsPack()}
+              >
+                {packingKind === 'homemade'
+                  ? 'Importing homemade…'
+                  : 'Import homemade foods pack'}
+              </button>
+            </div>
+            <p className="muted small" style={{ margin: 0 }}>
+              Everyday home-cooked dishes (eggs, fried/steamed fish &amp; meats, stir-fries, rice,
+              soups, dumplings, and more). Starts from a curated nutrition seed, then optionally
+              enriches from Open Food Facts. Duplicates skipped. Log from Diary like any food.
+            </p>
+          </div>
+
+          <div className="panel">
+            <div className="panel-header">
               <h2>Results</h2>
               <span className="muted">{onlineResults.length} found</span>
               <div className="spacer" />
@@ -577,7 +623,7 @@ export default function FoodsPage({ onToast }: Props): React.JSX.Element {
             {onlineResults.length === 0 ? (
               <div className="empty">
                 <h3>No results yet</h3>
-                <p>Search above, use a drink chip, or import a foods/drinks pack.</p>
+                <p>Search above, use a drink chip, or import a foods/drinks/homemade pack.</p>
               </div>
             ) : (
               <div className="table-wrap">

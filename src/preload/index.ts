@@ -50,6 +50,8 @@ const api = {
     ipcRenderer.invoke('nutrition:importCommonPack'),
   importDrinksPack: (): Promise<CommonPackImportResult> =>
     ipcRenderer.invoke('nutrition:importDrinksPack'),
+  importHomemadeFoodsPack: (): Promise<CommonPackImportResult> =>
+    ipcRenderer.invoke('nutrition:importHomemadePack'),
 
   listShopping: (): Promise<ShoppingListItem[]> => ipcRenderer.invoke('shopping:list'),
   addShopping: (input: {

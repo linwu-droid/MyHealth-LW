@@ -36,6 +36,7 @@ import {
 import {
   fetchCommonFoodsPack,
   fetchDrinksPack,
+  fetchHomemadeFoodsPack,
   searchOpenFoodFacts,
   toFoodInput
 } from './nutritionOnline'
@@ -117,6 +118,12 @@ function registerIpc(getWindow: () => BrowserWindow | null): void {
 
   ipcMain.handle('nutrition:importDrinksPack', async () => {
     const pack = await fetchDrinksPack()
+    const result = createFoodsBulk(pack.map(toFoodInput))
+    return { ...result, fetched: pack.length }
+  })
+
+  ipcMain.handle('nutrition:importHomemadePack', async () => {
+    const pack = await fetchHomemadeFoodsPack()
     const result = createFoodsBulk(pack.map(toFoodInput))
     return { ...result, fetched: pack.length }
   })
