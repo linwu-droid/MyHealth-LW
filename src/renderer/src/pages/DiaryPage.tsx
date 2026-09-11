@@ -1,4 +1,4 @@
-import React, { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
+﻿import React, { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import type { DiaryEntry, Food, MealType } from '../../../shared/types'
 import { scaleMinerals } from '../../../shared/minerals'
 import {
@@ -297,22 +297,22 @@ export default function DiaryPage({ onToast }: Props): React.JSX.Element {
       <div className="cards tight">
         <div className="card">
           <div className="label">Eaten</div>
-          <div className="value">{Math.round(dayTotals.kcal)}</div>
+          <div className="value">{Math.round(dayTotals.kcal)} Kcal</div>
         </div>
         <div className="card">
           <div className="label">Exercise</div>
-          <div className="value">{'\u2212'}{Math.round(exerciseKcal)}</div>
+          <div className="value">{Math.round(exerciseKcal)} Kcal</div>
         </div>
         <div className="card">
           <div className="label">Remaining</div>
           <div className={remaining < 0 ? 'value danger' : 'value'}>
-            {Math.round(remaining)}
+            {Math.round(remaining)} Kcal
           </div>
         </div>
         <div className="card">
           <div className="label">Protein / Carbohydrate / Fat</div>
           <div className="value small-value">
-            {Math.round(dayTotals.protein)} g {'\u00b7'} {Math.round(dayTotals.carbs)} g {'\u00b7'}{' '}
+            {Math.round(dayTotals.protein)} g / {Math.round(dayTotals.carbs)} g /{' '}
             {Math.round(dayTotals.fat)} g
           </div>
         </div>
@@ -561,8 +561,8 @@ export default function DiaryPage({ onToast }: Props): React.JSX.Element {
             <div className="panel-header">
               <h2>{m.label}</h2>
               <span className="muted">
-                {Math.round(totals.kcal)} kcal {'\u00b7'} Protein {Math.round(totals.protein)} g {'\u00b7'}{' '}
-                Carbohydrate {Math.round(totals.carbs)} g {'\u00b7'} Fat {Math.round(totals.fat)} g
+                {Math.round(totals.kcal)} kcal / Protein {Math.round(totals.protein)} g {'\u00b7'}{' '}
+                Carbohydrate {Math.round(totals.carbs)} g / Fat {Math.round(totals.fat)} g
               </span>
               <div className="spacer" />
               <button type="button" className="btn compact" onClick={() => openAdd(m.id)}>

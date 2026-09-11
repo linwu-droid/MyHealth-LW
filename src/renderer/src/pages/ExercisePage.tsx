@@ -1,4 +1,4 @@
-import type React from 'react'
+﻿import type React from 'react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { Exercise } from '../../../shared/types'
 import {
@@ -221,7 +221,7 @@ export default function ExercisePage({ onToast }: Props): React.JSX.Element {
               onChange={(e) => onPresetSelect(e.target.value)}
             >
               <option value="">Custom / pick preset…</option>
-              {PRESETS.map((p) => (
+              {[...PRESETS].sort((a, b) => a.name.localeCompare(b.name)).map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name} (MET {p.met})
                 </option>
@@ -238,7 +238,7 @@ export default function ExercisePage({ onToast }: Props): React.JSX.Element {
               placeholder="e.g. Brisk walk"
             />
             <datalist id="exercise-presets">
-              {PRESETS.map((p) => (
+              {[...PRESETS].sort((a, b) => a.name.localeCompare(b.name)).map((p) => (
                 <option key={p.id} value={p.name} />
               ))}
             </datalist>

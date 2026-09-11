@@ -1,4 +1,4 @@
-import type React from 'react'
+﻿import type React from 'react'
 import { useEffect, useState } from 'react'
 import type { DashboardSummary, AppSettings } from '../../../shared/types'
 import type { AppView } from '../App'
@@ -80,12 +80,12 @@ export default function HomePage({ onToast, onNavigate }: Props): React.JSX.Elem
       <div className="cards">
         <div className="card">
           <div className="label">Calories eaten</div>
-          <div className="value">{Math.round(dash.eaten.kcal)}</div>
+          <div className="value">{Math.round(dash.eaten.kcal)} Kcal</div>
           <div className="muted small">Goal {dash.calorieGoal} kcal</div>
         </div>
         <div className="card">
           <div className="label">Remaining</div>
-          <div className={remainingClass}>{Math.round(dash.remainingKcal)}</div>
+          <div className={remainingClass}>{Math.round(dash.remainingKcal)} Kcal</div>
           <div className="muted small">
             −{Math.round(dash.exerciseKcal)} exercise burned
           </div>
